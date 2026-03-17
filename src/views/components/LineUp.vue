@@ -1,7 +1,7 @@
 //TODO 修改默认border,阵营
 <script setup>
 import { ref } from 'vue'
-import { Star, Check, Compass, RefreshRight, Plus, Minus } from '@element-plus/icons-vue'
+import { Star, Check, Compass, RefreshRight, Plus, Minus, DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
 import RotateRight from '~icons/ix/rotate-90-right'
 import RotateLeft from '~icons/ix/rotate-90-left'
 // 地图选择
@@ -186,10 +186,7 @@ const startDrag = (event) => {
     if (!ifDragging) return
     moveX += e.movementX
     moveY += e.movementY
-    //FIXME 这里event.currentTarget不生效
-    // event.target.parentNode.style.left = moveX + 'px'
-    // event.target.parentNode.style.top = moveY + 'px'
-    event.target.parentNode.style.transform = `translate(${x + moveX}px,${y + moveY}px) scale(${scale}) rotate(${degree}deg)`
+    e.currentTarget.style.transform = `translate(${x + moveX}px,${y + moveY}px) scale(${scale}) rotate(${degree}deg)`
   }
   // 整个页面的监听器
   document.onmouseup = () => {
@@ -222,9 +219,11 @@ const resetMap = () => {
   y = 0
 }
 import mapImg from '@/assets/map/detail/abyss.png'
+import a from '../../assets/Pasted image 20250806131110.png'
 const mapList = [mapImg]
 
 // 技能描点展示
+const lineupDialogVisible = ref(false)
 const lineupHover = (event) => {
   event.currentTarget.style.border = 'none'
   event.currentTarget.nextSibling.style.backgroundColor = '#6c7dff'
@@ -247,6 +246,31 @@ const lineupBlur = (event) => {
   var r = document.getElementById('dot-range')
   let range = r.getContext('2d')
   range.clearRect(0, 0, 630, 630)
+}
+import src1 from '../../assets/Pasted image 20250806131110.png'
+import src2 from '../../assets/Pasted image 20250806131156.png'
+import src3 from '../../assets/Pasted image 20250806131222.png'
+const lineUpSrcList = [src1, src2, src3]
+const isLineUpPreview = ref(false)
+const lineUpPreviewIndex = ref(0)
+const showLineUpPreview = (index) => {
+  lineUpPreviewIndex.value = index
+  isLineUpPreview.value = true
+}
+
+// 设置栏
+const settingBarVisible = ref(false)
+const settingBarSwitchOn = () => {
+  const box = document.querySelector('.setting-bar')
+  if (box.classList.contains('setting-bar-anime-fold')) {
+    box.classList.remove('setting-bar-anime-fold')
+  }
+  box.classList.add('setting-bar-anime-unfold')
+}
+const settingBarSwitchOff = () => {
+  const box = document.querySelector('.setting-bar')
+  box.classList.remove('setting-bar-anime-unfold')
+  box.classList.add('setting-bar-anime-fold')
 }
 </script>
 
@@ -335,6 +359,7 @@ const lineupBlur = (event) => {
       </el-button>
     </div>
     <div class="map-container">
+      <!-- 地图调整按钮 -->
       <div class="map-adjust-button">
         <el-button class="map-reset" @click="resetMap" color="#363636" :icon="RefreshRight" type="info" />
         <br />
@@ -348,21 +373,69 @@ const lineupBlur = (event) => {
           <el-button class="map-reset" @click="mapZoomButton(-0.1)" color="#363636" :icon="Minus" type="info" />
         </el-button-group>
       </div>
+      <!-- 地图展示 -->
       <div class="map" @mousedown="startDrag" @wheel="mapZoom" draggable="false" id="map-container1">
-        <canvas id="dot-range" class="dot-range" width="630" height="630">抱歉您的浏览器不支持画布功能，请更换浏览器</canvas>
+        <canvas class="dot-range" id="dot-range" width="630" height="630">抱歉您的浏览器不支持画布功能，请更换浏览器</canvas>
         <div class="lineup">
-          <span ref="dotRef" class="dot" @mouseenter="lineupHover" @mouseleave="lineupBlur"></span>
+          <span ref="dotRef" class="dot" @mouseenter="lineupHover" @mouseleave="lineupBlur" @click="lineupDialogVisible = true"></span>
           <span class="dot-agent"></span>
         </div>
-        <div>
-          <span ref="dotRef" class="dot2"></span>
-        </div>
-        <span ref="dotRef" class="dot2"></span>
         <!-- <el-image ref="imgRef" class="imgTest" @mousedown="imgGetPosition" :src="mapImg" fit="cover" :preview-src-list="mapList" /> -->
         <img class="imgTest" @mousedown="imgGetPosition1" :src="mapImg" draggable="false" />
       </div>
+      <!-- 道具详情弹出框 -->
+      <el-dialog class="lineup-dialog" v-model="lineupDialogVisible" width="80%" title="A厅探测箭">
+        <el-row>
+          <el-col class="lineup-dialog-main" :span="18">
+            <el-image v-for="(src, index) in lineUpSrcList" :src="src" :fill="cover" :key="index" @click="showLineUpPreview(index)"></el-image>
+            <el-image-viewer
+              v-if="isLineUpPreview"
+              :zoom-rate="1.2"
+              :max-scale="7"
+              :min-scale="0.7"
+              :url-list="lineUpSrcList"
+              :initial-index="lineUpPreviewIndex"
+              @close="isLineUpPreview = false"
+            />
+          </el-col>
+          <el-col class="lineup-dialog-aside" :span="6">
+            <p class="label-text" style="margin-top: 0">道具描述</p>
+            <div class="description">开局射，帮助队友前压。</div>
+            <tbody style="width: 100%">
+              <tr>
+                <td>
+                  <span class="label">出手方式</span>
+                  <span class="describe">跑跳投</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="label">是否下蹲</span>
+                  <span class="describe">是</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="label">蓄力反弹</span>
+                  <span class="describe">一蓄力二反弹</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="label">容错率</span>
+                  <span class="describe">高</span>
+                </td>
+              </tr>
+            </tbody>
+          </el-col>
+        </el-row>
+      </el-dialog>
+      <!-- 设置栏开关 -->
+      <span class="setting-bar-switch" v-if="settingBarVisible" @click="(settingBarSwitchOff(), (settingBarVisible = false))"><DArrowRight /></span>
+      <span class="setting-bar-switch" v-else @click="(settingBarSwitchOn(), (settingBarVisible = true))"><DArrowLeft /></span>
     </div>
-    <div class="tool-bar"></div>
+    <!-- 设置 -->
+    <div class="setting-bar"></div>
   </div>
 </template>
 
@@ -373,6 +446,9 @@ const lineupBlur = (event) => {
   height: 100%;
   border: 1px solid red;
   box-sizing: border-box;
+  background: url('../../assets/bg.webp');
+  background-repeat: no-repeat;
+  background-size: cover;
   overflow: hidden;
 }
 .select-aside {
@@ -381,6 +457,7 @@ const lineupBlur = (event) => {
   padding: 10px 20px;
   box-sizing: border-box;
   border-right: 1px solid #363636;
+  background-color: #1a1a1a;
   // box-shadow: 1px 0px 1px 0px rgba(0, 0, 0, 0.5);
 
   .row {
@@ -467,9 +544,6 @@ const lineupBlur = (event) => {
 .map-container {
   width: 100%;
   min-width: 650px;
-  background: url('../../assets/bg.webp');
-  background-repeat: no-repeat;
-  background-size: cover;
   overflow: hidden;
   position: relative;
 
@@ -521,19 +595,6 @@ const lineupBlur = (event) => {
       transform: translate(-50%, -50%);
     }
 
-    .dot2 {
-      width: 30px;
-      height: 30px;
-      // background: red;
-      background: url('../../assets/agent/sova/sova_1.webp') no-repeat center / cover;
-      border-radius: 50%;
-      border: 1px solid #fff;
-      position: absolute;
-      z-index: 999;
-      left: 200px;
-      top: 200px;
-    }
-
     .imgTest {
       width: 100%;
       height: 100%;
@@ -550,7 +611,7 @@ const lineupBlur = (event) => {
     display: flex;
     flex-direction: column;
     position: absolute;
-    z-index: 1000;
+    z-index: 999;
     right: 15px;
     bottom: 15px;
 
@@ -560,12 +621,110 @@ const lineupBlur = (event) => {
       font-size: 18px;
     }
   }
+
+  .lineup-dialog {
+    .lineup-dialog-main {
+      padding-right: 10px;
+      border-right: 1px solid #363636;
+      max-height: calc(90vh - 20px);
+      overflow: scroll;
+    }
+    .lineup-dialog-main::-webkit-scrollbar {
+      display: none;
+    }
+    .lineup-dialog-aside {
+      padding-left: 10px;
+      max-height: calc(90vh - 20px);
+      overflow: scroll;
+
+      .description {
+        background-color: #363636;
+        border-radius: 5px;
+        color: #fff;
+        font-size: 16px;
+        padding: 10px 10px;
+      }
+
+      tr {
+        height: 40px;
+      }
+
+      .label {
+        color: #cacaca;
+        font-size: 16px;
+      }
+
+      .describe {
+        margin-left: 10px;
+        color: #fff;
+        font-size: 16px;
+      }
+    }
+    .lineup-dialog-aside::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .setting-bar-switch {
+    display: flex;
+    align-items: center;
+    width: 16px;
+    height: 70px;
+    color: #fff;
+    background-color: #1a1a1a;
+    border: 1px solid #363636;
+    border-right: none;
+    border-radius: 50% 0 0 50%;
+    position: absolute;
+    z-index: 999;
+    right: 0;
+    top: 46%;
+  }
+
+  .setting-bar-switch:hover {
+    background-color: #363636;
+  }
 }
 
-.tool-bar {
+.setting-bar {
   height: 100%;
-  min-width: 300px;
+  min-width: 0;
   border-left: 1px solid #363636;
+  background-color: #1a1a1a;
+}
+
+.setting-bar-anime-fold {
+  animation: setting-bar-fold 0.4s ease forwards;
+}
+
+.setting-bar-anime-unfold {
+  animation: setting-bar-unfold 0.4s ease forwards;
+}
+
+@keyframes setting-bar-fold {
+  from {
+    height: 100%;
+    min-width: 300px;
+    border-left: 1px solid #363636;
+  }
+  to {
+    height: 100%;
+    min-width: 0;
+    border-left: 1px solid #363636;
+  }
+}
+
+@keyframes setting-bar-unfold {
+  from {
+    height: 100%;
+    min-width: 0;
+    border-left: 1px solid #363636;
+  }
+  to {
+    height: 100%;
+    min-width: 300px;
+    border-left: 1px solid #363636;
+  }
 }
 </style>
 
@@ -669,5 +828,14 @@ const lineupBlur = (event) => {
       color: #66e5da;
     }
   }
+}
+
+.lineup-dialog {
+  min-width: 1000px;
+  margin: 0 auto !important;
+  margin-top: 30px !important;
+  max-height: 90vh;
+  overflow: hidden;
+  --el-dialog-bg-color: #1a1a1a !important;
 }
 </style>

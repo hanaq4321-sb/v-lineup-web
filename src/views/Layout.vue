@@ -47,14 +47,7 @@ const popoverLeave = () => {
       <!-- 导航栏 -->
       <div class="navigation">
         <!-- string类型不需要冒号，其他类型需要 -->
-        <el-menu
-          default-active="2"
-          mode="horizontal"
-          :ellipsis="false"
-          background-color="#1a1a1a"
-          text-color="#fff"
-          active-text-color="#fd4453"
-        >
+        <el-menu default-active="2" mode="horizontal" :ellipsis="false" background-color="#1a1a1a" text-color="#fff" active-text-color="#fd4453">
           <el-menu-item index="1">首页</el-menu-item>
           <el-menu-item index="2">LineUp</el-menu-item>
           <el-menu-item index="3">社区</el-menu-item>
