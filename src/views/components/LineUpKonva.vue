@@ -1,11 +1,15 @@
 //TODO 修改默认border,阵营
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useImage } from 'vue-konva'
 import { Star, StarFilled, Check, Compass, RefreshRight, Plus, Minus, DArrowLeft, DArrowRight, Tools, CloseBold } from '@element-plus/icons-vue'
 import RotateRight from '~icons/ix/rotate-90-right'
 import RotateLeft from '~icons/ix/rotate-90-left'
 import Like from '~icons/mdi/like-outline'
 import LikeFilled from '~icons/mdi/like'
+const getImageUrl = (url) => {
+  return new URL(url, import.meta.url).href
+}
 //#region 地图选择
 const mapValue = ref('深海明珠')
 const maps = [
@@ -194,137 +198,213 @@ const locate = (X, Y) => {
 }
 //#endregion
 //#region 地图缩放、拖动、旋转
-let scale = 1,
-  scaleOld = 1,
-  degree = 0,
-  deltaX = 0,
-  deltaY = 0
-let moveX = 0
-let moveY = 0
-let x = 0
-let y = 0
-// TODO 对两个不同位置缩放有误差
-const mapZoom = (event) => {
-  let width = event.currentTarget.clientWidth,
-    height = event.currentTarget.clientHeight
-  let d = event.deltaY < 0 ? 0.1 : -0.1
-  let ratio = 1 + d
-  let temp_scale = scale * ratio
-  if ((temp_scale > 1 && temp_scale < 2) || (temp_scale >= 2 && event.deltaY > 0) || (temp_scale <= 1 && event.deltaY < 0)) {
-    scale = temp_scale
-    let rotateX = event.offsetX,
-      rotateY = event.offsetY
-    let reminder = degree % 360
-    if (reminder == 90 || reminder == -270) {
-      rotateX = height - event.offsetY
-      rotateY = event.offsetX
-    } else if (reminder == -90 || reminder == 270) {
-      rotateX = event.offsetY
-      rotateY = width - event.offsetX
-    } else if (reminder == 180 || reminder == -180) {
-      rotateX = width - event.offsetX
-      rotateY = height - event.offsetY
-    }
-    let rect = event.currentTarget.getBoundingClientRect()
-    const max = {
-      x: (d * 630) / 2,
-      y: (d * 630) / 2,
-    }
-    const mouseOffset = {
-      x: rotateX,
-      y: rotateY,
-    }
-    x -= (mouseOffset.x - x) * d - max.x
-    y -= (mouseOffset.y - y) * d - max.y
-    // transform:scale rotate不改变布局尺寸，如果仅放大图片，图片放大后点击的位置映射的是原尺寸位置。并且transform变换不会保存，所以每次变换需要将各种变换都设置
-    event.currentTarget.style.transform = `translate3d(${x + moveX}px,${y + moveY}px,0) scale(${scale}) rotate(${degree}deg)`
-    // event.target.parentNode.style.transformOrigin = `${x}px ${y}px`  因为要涉及到旋转后仍能正常缩放，而使用origin会导致元素以此为中心旋转
-  }
+const mapContainerRef = ref()
+const stageRef = ref()
+var stageConfig = ref({
+  width: 0,
+  height: 0,
+})
+// 利用group实现子元素相对于group相对定位
+const groupConfig = ref({
+  // config要为ref，canvas才能动态变化。同时给x设置computed就能保证stage变化后，x也会重新计算跟着更新。目的是为了适应不同窗口大小
+  x: computed(() => {
+    // kanva以元素的左上角定位，所以要居中要减去元素宽度的一半
+    return stageConfig.value.width / 2
+  }),
+  y: computed(() => {
+    // kanva以元素的左上角定位，所以要居中要减去元素宽度的一半
+    return stageConfig.value.height / 2
+  }),
+  // NOTE offset更改形状的原点。矩形类形状默认的原点是左上角，定位也是以左上角定位。修改完offset后，将原点挪至中心，方后续的定位变换等。
+  // FIXME 更改屏幕大小时stage改变导致groupconfig重新计算，从而使已经拖动的失效。应该通过node设置
+  offsetX: computed(() => {
+    return stageConfig.value.height / 2
+  }),
+  offsetY: computed(() => {
+    return stageConfig.value.height / 2
+  }),
+  height: 0,
+  width: 0,
+  draggable: true,
+  scaleX: 1,
+  scaleY: 1,
+})
+const [map] = useImage(getImageUrl('../../assets/map/detail/breeze.png'))
+const mapDetailConfig = ref({
+  x: 0,
+  y: 0,
+  image: map,
+  width: 0,
+  height: 0,
+})
+onMounted(() => {
+  // NOTE offsetWidth：内容、内边距、边框  clientWidth：内容、内边距
+  // let parentWidth = mapContainerRef.value.clientWidth 这样会导致值定死，应该只获取dom
+  stageConfig.value.width = mapContainerRef.value.clientWidth
+  stageConfig.value.height = mapContainerRef.value.clientHeight
+  mapDetailConfig.value.width = mapContainerRef.value.clientHeight
+  mapDetailConfig.value.height = mapContainerRef.value.clientHeight
+  groupConfig.value.width = mapContainerRef.value.clientHeight
+  groupConfig.value.height = mapContainerRef.value.clientHeight
+  const container = document.getElementById('map-container1')
+  const observer = new ResizeObserver(() => {
+    // 画布正常跟随屏幕大小变化
+    stageConfig.value.width = mapContainerRef.value.clientWidth
+    stageConfig.value.height = mapContainerRef.value.clientHeight
+    // 地图等比例缩放，这样可以使地图组件内的点线也跟着一起缩放
+    let scaleY = mapContainerRef.value.clientHeight / groupConfig.value.height
+    groupConfig.value.scaleX = scaleY
+    groupConfig.value.scaleY = scaleY
+  })
+  observer.observe(container)
+})
+const [skill] = useImage(getImageUrl('../../assets/agent/sova/sova_1.webp'))
+const skillList = ref([])
+const stageClick = (e) => {
+  const group = e.target.getStage().findOne('Group')
+  if (!group) return
+  // group上的click事件，故获取的是相对于group左上角的定位，因为group的宽高都相等根据屏幕自适应变化，为1：1,故在此可用百分比定位
+  const pos = group.getRelativePointerPosition()
+  let xp = pos.x / groupConfig.value.width
+  let yp = pos.y / groupConfig.value.height
+  skillList.value.push({
+    // 保证group大小随屏幕变化时，定位也跟着变化
+    x: computed(() => {
+      return xp * groupConfig.value.width - 15
+    }),
+    y: computed(() => {
+      return yp * groupConfig.value.height - 15
+    }),
+    id: Date.now().toString(),
+    offsetX: 15,
+    offsetY: 15,
+    width: 30,
+    height: 30,
+    cornerRadius: 15,
+    stroke: '#96ef7b',
+    strokeWidth: 2,
+    image: skill,
+    name: 'skillIcon',
+  })
+  console.log(skillList.value)
 }
-const mapZoom1 = (event) => {
-  // 浮点精度问题，会出现0.500~01
-  let parentWidth = event.currentTarget.parentNode.clientWidth
-  let parentHeight = event.currentTarget.parentNode.clientHeight
-  let ratio = event.deltaY < 0 ? 0.1 : -0.1
-  let temp_scale = scale * (ratio + 1)
-  if ((temp_scale > 1 && temp_scale < 2) || (temp_scale >= 2 && event.deltaY > 0) || (temp_scale <= 1 && event.deltaY < 0)) {
-    scale = temp_scale
-    // scale = scale + event.deltaY * -0.001
-    // 让获取到的坐标也旋转到对应位置。  transform仅改变视觉，比如点击图片左上角，顺指针90度后，点击图片右上角，获取到的仍是原来左上角的位置
-    let rotateX = event.offsetX,
-      rotateY = event.offsetY
-    let reminder = degree % 360
-    if (reminder == 90 || reminder == -270) {
-      rotateX = parentHeight - event.offsetY
-      rotateY = event.offsetX
-    } else if (reminder == -90 || reminder == 270) {
-      rotateX = event.offsetY
-      rotateY = parentWidth - event.offsetX
-    } else if (reminder == 180 || reminder == -180) {
-      rotateX = parentWidth - event.offsetX
-      rotateY = parentHeight - event.offsetY
-    }
-    // 计算缩放后的偏移量，用焦点离中心点的比例乘以图片缩放的尺寸的一半。
-    let deltaX = (((rotateX / (dotRef.value.parentNode.clientWidth / 2) - 1) * dotRef.value.parentNode.clientWidth) / 2) * (scale - 1)
-    let deltaY = (((rotateY / (dotRef.value.parentNode.clientHeight / 2) - 1) * dotRef.value.parentNode.clientHeight) / 2) * (scale - 1)
-    // transform:scale rotate不改变布局尺寸，如果仅放大图片，图片放大后点击的位置映射的是原尺寸位置。并且transform变换不会保存，所以每次变换需要将各种变换都设置
-    //NOTE 在右上角放大，地图向左下角偏移，此时在已经偏移的地图中另选一个点放大，因为offset不变，故delta不变，故整体将会以图片未向左下角偏移时放大
-    let rect = event.currentTarget.getBoundingClientRect()
-    let ratio = scale - scaleOld
-    scaleOld = scale
-    const max = {
-      x: (ratio * rect.width) / 2,
-      y: (ratio * rect.height) / 2,
-    }
-    const mouseOffset = {
-      x: event.clientX - rect.x,
-      y: event.clientY - rect.y,
-    }
-    x -= (mouseOffset.x - x) * ratio - max.x
-    y -= (mouseOffset.y - y) * ratio - max.y
-    event.currentTarget.parentNode.style.transform = `translate3d(${x}px,${y}px,0) scale(${scale}) rotate(${degree}deg)`
-    // event.currentTarget.parentNode.style.transform = `scale(${scale}) rotate(${degree}deg)`
-    // event.target.parentNode.style.transformOrigin = `${x}px ${y}px`  因为要涉及到旋转后仍能正常缩放，而使用origin会导致元素以此为中心旋转
+const handleWheel = (e) => {
+  // 代表没有阻止任何事件
+  // e.evt.preventDefault()
+  const stage = stageRef.value.getNode()
+  // 以x为基准，保证比例不变
+  const oldScale = stage.scaleX()
+  const pointer = stage.getPointerPosition()
+
+  const mousePointTo = {
+    x: (pointer.x - stage.x()) / oldScale,
+    y: (pointer.y - stage.y()) / oldScale,
   }
+
+  // 如何缩放？放大？还是缩小？
+  let direction = e.evt.deltaY > 0 ? -1 : 1
+
+  // 当我们在触控板上缩放时，e.evt.ctrlKey 为 true
+  // FIXME 在这种情况下，反转方向
+  if (e.evt.ctrlKey) {
+    direction = -direction
+  }
+
+  const scaleBy = 1.1
+  const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy
+
+  stage.scale({ x: newScale, y: newScale })
+
+  const newPos = {
+    x: pointer.x - mousePointTo.x * newScale,
+    y: pointer.y - mousePointTo.y * newScale,
+  }
+  stage.position(newPos)
+  // 加参数设置，不加参数获取
+  console.log(stage.position())
 }
-let ifDragging = false
-const startDrag = (event) => {
-  ifDragging = true
-  event.currentTarget.onmousemove = (e) => {
-    if (!ifDragging) return
-    moveX += e.movementX
-    moveY += e.movementY
-    e.currentTarget.style.transform = `translate(${x + moveX}px,${y + moveY}px) scale(${scale}) rotate(${degree}deg)`
-  }
-  // 整个页面的监听器
-  document.onmouseup = () => {
-    if (!ifDragging) return
-    ifDragging = false
-  }
-}
+// 地图调整按钮组
 const mapZoomButton = (s) => {
-  if ((scale > 1 && scale < 2) || (scale >= 2 && s < 0) || (scale <= 1 && s > 0)) {
-    scale += s
-    document.getElementsByClassName('map')[0].style.transform = `translate(${x + moveX}px,${y + moveY}px) rotate(${degree}deg) scale(${scale})`
+  const stage = stageRef.value.getNode()
+  const oldScale = stage.scaleX()
+  const scaleBy = 1.1
+  const newScale = s > 0 ? oldScale * scaleBy : oldScale / scaleBy
+  const newPos = {
+    // FIXME 优化
+    x: (stage.width() - stage.width() * newScale) / 2,
+    y: (stage.height() - stage.height() * newScale) / 2,
   }
+  stage.scale({ x: newScale, y: newScale })
+  stage.position(newPos)
 }
-const mapRotate = (deg) => {
-  degree += deg
-  document.getElementsByClassName('map')[0].style.transform = `translate(${x + moveX}px,${y + moveY}px) rotate(${degree}deg) scale(${scale})`
-  document.getElementsByClassName('map')[0].style.transformOrigin = 'center center'
+let degree = 0
+const mapRotate = (d) => {
+  degree += d
+  const stage = stageRef.value.getNode()
+  const group = stage.findOne('Group')
+  group.to({ rotation: degree })
+  const icon = stage.findOne('.skillIcon')
+  // TODO 批量？
+  icon.to({ rotation: -degree })
 }
 const resetMap = () => {
-  // 得到的是数组
-  document.getElementsByClassName('map')[0].setAttribute('style', 'left:0;top:0')
-  document.getElementsByClassName('map')[0].style.transform = 'scale(1)'
-  scale = 1
-  moveX = 0
-  moveY = 0
+  // NOTE stage的scale是为了实现滚轮缩放，stage适应屏幕通过修改config实现，group的scale是为了适应不同屏幕。在此要分别重置stage的偏移和group的drag
+  // 获取stage节点
+  const stage = stageRef.value.getNode()
+  stage.position({ x: 0, y: 0 })
+  stage.scale({ x: 1, y: 1 })
+  // 通过stage节点获取组
+  const group = stage.findOne('Group') // 直接大写按类型、.按name、#按id。name和id为config中的
+  // NOTE 1、修改config.value；2、修改shape.position
+  // NOTE config会影响元素，而元素的变化不会修改config
+  group.position({ x: groupConfig.value.x, y: groupConfig.value.y })
   degree = 0
-  deltaX = 0
-  deltaY = 0
-  x = 0
-  y = 0
+  group.to({ rotation: degree })
+}
+// #endregion
+//#region lineUp范围站位细节展示
+const lineUpDetailVisible = ref(false)
+const roundConfig = ref({
+  x: 200,
+  y: 200,
+  radius: 50,
+  fill: 'rgba(0,0,0,0.3)',
+  stroke: '#6c7dff',
+  strokeWidth: 2,
+  name: 'skillScope',
+})
+const lineConfig = ref({
+  stroke: '#6c7dff',
+  strokeWidth: 2,
+  lineCap: 'round',
+  name: 'skillLine',
+})
+const [agent] = useImage(getImageUrl('../../assets/agent/sova/sova.webp'))
+const agentConfig = ref({
+  x: 100,
+  y: 100,
+  width: 30,
+  height: 30,
+  // TODO offset值修改为大小的一半
+  offsetX: 15,
+  offsetY: 15,
+  cornerRadius: 5,
+  fill: '#6c7dff',
+  image: agent,
+  name: 'skillAgent',
+})
+const lineUpHover = (id) => {
+  lineUpDetailVisible.value = true
+  const item = skillList.value.find((i) => i.id === id)
+  roundConfig.value.x = item.x
+  roundConfig.value.y = item.y
+  item.strokeWidth = 0
+  lineConfig.value.points = [roundConfig.value.x, roundConfig.value.y, agentConfig.value.x, agentConfig.value.y]
+}
+const lineUpBlur = (id) => {
+  lineUpDetailVisible.value = false
+  const item = skillList.value.find((i) => i.id === id)
+  item.strokeWidth = 2
 }
 //#endregion
 import mapImg from '@/assets/map/detail/abyss.png'
@@ -360,6 +440,7 @@ const lineupBlur = (event) => {
 import src1 from '../../assets/Pasted image 20250806131110.png'
 import src2 from '../../assets/Pasted image 20250806131156.png'
 import src3 from '../../assets/Pasted image 20250806131222.png'
+import { stages } from 'konva/lib/Stage'
 const lineUpSrcList = [src1, src2, src3]
 const isLineUpPreview = ref(false)
 const lineUpPreviewIndex = ref(0)
@@ -388,9 +469,7 @@ const settingBarSwitchOff = () => {
 const pointNameVisible = ref(false),
   skillBallVisible = ref(false),
   lightCurtainVisible = ref(false)
-const getImageUrl = (url) => {
-  return new URL(url, import.meta.url).href
-}
+
 const settingBarAgentClick = (e, agent) => {
   let dom = document.getElementsByClassName('agent-img')
   for (let i = 0; i < dom.length; i++) {
@@ -506,19 +585,31 @@ const settingBarAgentClick = (e, agent) => {
         </el-button-group>
         <br />
         <el-button-group direction="vertical">
-          <el-button class="map-reset" @click="mapZoomButton(0.1)" color="#363636" :icon="Plus" type="info" />
-          <el-button class="map-reset" @click="mapZoomButton(-0.1)" color="#363636" :icon="Minus" type="info" />
+          <el-button class="map-reset" @click="mapZoomButton(1)" color="#363636" :icon="Plus" type="info" />
+          <el-button class="map-reset" @click="mapZoomButton(-1)" color="#363636" :icon="Minus" type="info" />
         </el-button-group>
       </div>
       <!-- 地图 -->
-      <div class="map" @mousedown="startDrag" @wheel="mapZoom" draggable="false" id="map-container1">
-        <canvas class="dot-range" id="dot-range" width="630" height="630">抱歉您的浏览器不支持画布功能，请更换浏览器</canvas>
-        <div class="lineup">
-          <span ref="dotRef" class="dot" @mouseenter="lineupHover" @mouseleave="lineupBlur" @click="lineupDialogVisible = true"></span>
-          <span class="dot-agent"></span>
-        </div>
-        <!-- <el-image ref="imgRef" class="imgTest" @mousedown="imgGetPosition" :src="mapImg" fit="cover" :preview-src-list="mapList" /> -->
-        <img class="imgTest" @mousedown="imgGetPosition1" :src="mapImg" draggable="false" />
+      <div class="map" ref="mapContainerRef" id="map-container1">
+        <v-stage ref="stageRef" :config="stageConfig" @wheel="handleWheel">
+          <v-layer>
+            <v-group :config="groupConfig" @click="stageClick">
+              <v-image :config="mapDetailConfig" />
+              <v-circle :config="roundConfig" v-if="lineUpDetailVisible" />
+              <v-line :config="lineConfig" v-if="lineUpDetailVisible" />
+              <v-image :config="agentConfig" v-if="lineUpDetailVisible" />
+              <!-- 遮盖按后来居上的顺序 -->
+              <v-image
+                v-for="skill in skillList"
+                :key="skill.id"
+                :config="skill"
+                @mouseenter="lineUpHover(skill.id)"
+                @mouseleave="lineUpBlur(skill.id)"
+                @click="lineupDialogVisible = true"
+              />
+            </v-group>
+          </v-layer>
+        </v-stage>
       </div>
       <!-- 道具详情弹出框 -->
       <el-dialog class="lineup-dialog" v-model="lineupDialogVisible" width="90%" title="A厅探测箭" :show-close="false">
@@ -662,7 +753,6 @@ const settingBarAgentClick = (e, agent) => {
   display: flex;
   justify-content: space-between;
   height: 100%;
-  border: 1px solid red;
   box-sizing: border-box;
   background: url('../../assets/bg.webp');
   background-repeat: no-repeat;
@@ -774,14 +864,12 @@ const settingBarAgentClick = (e, agent) => {
   .map {
     position: relative;
     margin: 0 auto;
-    // left: 0px;
-    // top: 0px;
-    margin-top: 10px;
     border: 1px solid #fff;
-    width: 630px;
-    height: 630px;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     user-select: none;
+    box-sizing: border-box;
 
     .lineup {
       position: relative;

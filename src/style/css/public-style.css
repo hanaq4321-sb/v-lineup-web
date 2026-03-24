@@ -2,3 +2,25 @@
   font-size: 14px;
   color: #686767;
 }
+
+.default-text{
+  font-size: 16px;
+  color: #fff;
+}
+
+.large-text{
+  font-size: 18px;
+  color: #fff;
+}
+
+.title-text{
+  font-size: 24px;
+  color: #fff;
+  font-weight: bold;
+}
+
+
+.flex-center{
+  display: flex;
+  align-items: center;
+}

@@ -2,6 +2,12 @@
 import { ref } from 'vue'
 import { Search, Upload, User, Message, Operation, SwitchButton, ArrowRight } from '@element-plus/icons-vue'
 import LineUp from './components/LineUp.vue'
+import Fabric from './components/fabric.vue'
+import Canvas from './components/canvas.vue'
+import Konva from './components/konva.vue'
+import VueKonva from './components/VueKonva.vue'
+import VueKonvaZoom from './components/VueKonvaZoom.vue'
+import LineUpKonva from './components/LineUpKonva.vue'
 // 道具搜索
 const search = ref('')
 // 头像动画控制
@@ -115,7 +121,13 @@ const popoverLeave = () => {
       </div>
     </el-header>
     <el-main>
-      <LineUp />
+      <!-- <LineUp /> -->
+      <!-- <Fabric /> -->
+      <!-- <Canvas /> -->
+      <!-- <Konva /> -->
+      <!-- <VueKonva /> -->
+      <!-- <VueKonvaZoom /> -->
+      <LineUpKonva />
     </el-main>
   </el-container>
 </template>
