@@ -207,22 +207,21 @@ var stageConfig = ref({
 // 利用group实现子元素相对于group相对定位
 const groupConfig = ref({
   // config要为ref，canvas才能动态变化。同时给x设置computed就能保证stage变化后，x也会重新计算跟着更新。目的是为了适应不同窗口大小
-  x: computed(() => {
-    // kanva以元素的左上角定位，所以要居中要减去元素宽度的一半
-    return stageConfig.value.width / 2
-  }),
-  y: computed(() => {
-    // kanva以元素的左上角定位，所以要居中要减去元素宽度的一半
-    return stageConfig.value.height / 2
-  }),
+  // x: computed(() => {
+  //   // kanva以元素的左上角定位，所以要居中要减去元素宽度的一半
+  //   return stageConfig.value.width / 2
+  // }),
+  // y: computed(() => {
+  //   // kanva以元素的左上角定位，所以要居中要减去元素宽度的一半
+  //   return stageConfig.value.height / 2
+  // }),
+  x: 0,
+  y: 0,
   // NOTE offset更改形状的原点。矩形类形状默认的原点是左上角，定位也是以左上角定位。修改完offset后，将原点挪至中心，方后续的定位变换等。
-  // FIXME 更改屏幕大小时stage改变导致groupconfig重新计算，从而使已经拖动的失效。应该通过node设置
-  offsetX: computed(() => {
-    return stageConfig.value.height / 2
-  }),
-  offsetY: computed(() => {
-    return stageConfig.value.height / 2
-  }),
+  // offsetX: stageConfig.value.height / 2,
+  // offsetY: stageConfig.value.height / 2,
+  offsetX: 0,
+  offsetY: 0,
   height: 0,
   width: 0,
   draggable: true,
@@ -251,10 +250,14 @@ onMounted(() => {
     // 画布正常跟随屏幕大小变化
     stageConfig.value.width = mapContainerRef.value.clientWidth
     stageConfig.value.height = mapContainerRef.value.clientHeight
-    // 地图等比例缩放，这样可以使地图组件内的点线也跟着一起缩放
+    // 地图宽高1：1缩放，这样可以使地图组件内的点线也跟着一起缩放
     let scaleY = mapContainerRef.value.clientHeight / groupConfig.value.height
-    groupConfig.value.scaleX = scaleY
-    groupConfig.value.scaleY = scaleY
+    const group = stageRef.value.getNode().findOne('Group')
+    console.log(scaleY)
+    group.scale({ x: scaleY, y: scaleY })
+    group.offset({ x: group.width() / 2, y: group.height() / 2 })
+    // FIXME 窗口变化就重置，检查其他网站逻辑
+    group.position({ x: stageConfig.value.width / 2, y: stageConfig.value.height / 2 })
   })
   observer.observe(container)
 })
@@ -270,10 +273,10 @@ const stageClick = (e) => {
   skillList.value.push({
     // 保证group大小随屏幕变化时，定位也跟着变化
     x: computed(() => {
-      return xp * groupConfig.value.width - 15
+      return xp * groupConfig.value.width
     }),
     y: computed(() => {
-      return yp * groupConfig.value.height - 15
+      return yp * groupConfig.value.height
     }),
     id: Date.now().toString(),
     offsetX: 15,
@@ -286,7 +289,6 @@ const stageClick = (e) => {
     image: skill,
     name: 'skillIcon',
   })
-  console.log(skillList.value)
 }
 const handleWheel = (e) => {
   // 代表没有阻止任何事件
@@ -320,8 +322,6 @@ const handleWheel = (e) => {
     y: pointer.y - mousePointTo.y * newScale,
   }
   stage.position(newPos)
-  // 加参数设置，不加参数获取
-  console.log(stage.position())
 }
 // 地图调整按钮组
 const mapZoomButton = (s) => {
@@ -343,9 +343,12 @@ const mapRotate = (d) => {
   const stage = stageRef.value.getNode()
   const group = stage.findOne('Group')
   group.to({ rotation: degree })
-  const icon = stage.findOne('.skillIcon')
-  // TODO 批量？
-  icon.to({ rotation: -degree })
+  const icons = stage.find('.skillIcon')
+  icons.forEach((icon) => {
+    icon.to({ rotation: -degree })
+  })
+  // v-if未渲染时获取不到形状，这里可以修改config
+  agentConfig.value.rotation = -degree
 }
 const resetMap = () => {
   // NOTE stage的scale是为了实现滚轮缩放，stage适应屏幕通过修改config实现，group的scale是为了适应不同屏幕。在此要分别重置stage的偏移和group的drag
@@ -357,9 +360,15 @@ const resetMap = () => {
   const group = stage.findOne('Group') // 直接大写按类型、.按name、#按id。name和id为config中的
   // NOTE 1、修改config.value；2、修改shape.position
   // NOTE config会影响元素，而元素的变化不会修改config
-  group.position({ x: groupConfig.value.x, y: groupConfig.value.y })
+  group.position({ x: stage.width() / 2, y: stage.height() / 2 })
+  // 重置角度
   degree = 0
   group.to({ rotation: degree })
+  const icons = stage.find('.skillIcon')
+  icons.forEach((icon) => {
+    icon.to({ rotation: degree })
+  })
+  agentConfig.value.rotation = degree
 }
 // #endregion
 //#region lineUp范围站位细节展示
@@ -594,11 +603,15 @@ const settingBarAgentClick = (e, agent) => {
         <v-stage ref="stageRef" :config="stageConfig" @wheel="handleWheel">
           <v-layer>
             <v-group :config="groupConfig" @click="stageClick">
+              <!-- 地图背景 -->
               <v-image :config="mapDetailConfig" />
+              <!-- 技能范围 -->
               <v-circle :config="roundConfig" v-if="lineUpDetailVisible" />
+              <!-- 技能与特工连线 -->
               <v-line :config="lineConfig" v-if="lineUpDetailVisible" />
+              <!-- 特工 -->
               <v-image :config="agentConfig" v-if="lineUpDetailVisible" />
-              <!-- 遮盖按后来居上的顺序 -->
+              <!-- 技能图标 -->
               <v-image
                 v-for="skill in skillList"
                 :key="skill.id"
@@ -607,6 +620,7 @@ const settingBarAgentClick = (e, agent) => {
                 @mouseleave="lineUpBlur(skill.id)"
                 @click="lineupDialogVisible = true"
               />
+              <!-- 遮盖按后来居上的顺序 -->
             </v-group>
           </v-layer>
         </v-stage>
@@ -753,7 +767,6 @@ const settingBarAgentClick = (e, agent) => {
   display: flex;
   justify-content: space-between;
   height: 100%;
-  box-sizing: border-box;
   background: url('../../assets/bg.webp');
   background-repeat: no-repeat;
   background-size: cover;
@@ -794,51 +807,51 @@ const settingBarAgentClick = (e, agent) => {
 
   .skills {
     position: relative;
-  }
 
-  .skill-icon {
-    width: 50px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-  }
+    .skill-icon {
+      width: 50px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+    }
 
-  .skill-icon:hover {
-    width: 50px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    background-color: #686767;
-  }
+    .skill-icon:hover {
+      width: 50px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      background-color: #686767;
+    }
 
-  .skill-icon-click {
-    width: 50px;
-    border-radius: 50%;
-    border: 2px solid #96ef7b;
-  }
+    .skill-icon-click {
+      width: 50px;
+      border-radius: 50%;
+      border: 2px solid #96ef7b;
+    }
 
-  .skill-icon-click:hover {
-    width: 50px;
-    border-radius: 50%;
-    border: 2px solid #96ef7b;
-    background-color: #686767;
-  }
+    .skill-icon-click:hover {
+      width: 50px;
+      border-radius: 50%;
+      border: 2px solid #96ef7b;
+      background-color: #686767;
+    }
 
-  .skill-icon-num {
-    width: 20px;
-    background-color: #96ef7b;
-    color: black;
-    font-family: 'SimHei';
-    position: absolute;
-    top: 40px;
-    left: 17px;
-  }
+    .skill-icon-num {
+      width: 20px;
+      background-color: #96ef7b;
+      color: black;
+      font-family: 'SimHei';
+      position: absolute;
+      top: 40px;
+      left: 17px;
+    }
 
-  .skill-icon-check {
-    color: black;
-    position: absolute;
-    left: 39px;
-    top: 0px;
-    background-color: #96ef7b;
-    border-radius: 50%;
+    .skill-icon-check {
+      color: black;
+      position: absolute;
+      left: 39px;
+      top: 0px;
+      background-color: #96ef7b;
+      border-radius: 50%;
+    }
   }
 
   .show-collect {

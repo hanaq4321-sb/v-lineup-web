@@ -1,12 +1,6 @@
 <script setup>
 import { ref } from 'vue'
 import { Search, Upload, User, Message, Operation, SwitchButton, ArrowRight } from '@element-plus/icons-vue'
-import LineUp from './components/LineUp.vue'
-import Fabric from './components/fabric.vue'
-import Canvas from './components/canvas.vue'
-import Konva from './components/konva.vue'
-import VueKonva from './components/VueKonva.vue'
-import VueKonvaZoom from './components/VueKonvaZoom.vue'
 import LineUpKonva from './components/LineUpKonva.vue'
 // 道具搜索
 const search = ref('')
@@ -53,10 +47,18 @@ const popoverLeave = () => {
       <!-- 导航栏 -->
       <div class="navigation">
         <!-- string类型不需要冒号，其他类型需要 -->
-        <el-menu default-active="2" mode="horizontal" :ellipsis="false" background-color="#1a1a1a" text-color="#fff" active-text-color="#fd4453">
+        <el-menu
+          router
+          default-active="/"
+          mode="horizontal"
+          :ellipsis="false"
+          background-color="#1a1a1a"
+          text-color="#fff"
+          active-text-color="#fd4453"
+        >
           <el-menu-item index="1">首页</el-menu-item>
-          <el-menu-item index="2">LineUp</el-menu-item>
-          <el-menu-item index="3">社区</el-menu-item>
+          <el-menu-item index="/lineup">LineUp</el-menu-item>
+          <el-menu-item index="/editor">社区</el-menu-item>
           <el-menu-item index="4">收藏</el-menu-item>
         </el-menu>
         <el-input v-model="search" placeholder="搜索道具" :prefix-icon="Search"></el-input>
@@ -121,13 +123,7 @@ const popoverLeave = () => {
       </div>
     </el-header>
     <el-main>
-      <!-- <LineUp /> -->
-      <!-- <Fabric /> -->
-      <!-- <Canvas /> -->
-      <!-- <Konva /> -->
-      <!-- <VueKonva /> -->
-      <!-- <VueKonvaZoom /> -->
-      <LineUpKonva />
+      <router-view></router-view>
     </el-main>
   </el-container>
 </template>
