@@ -55,7 +55,7 @@ const maps = [
   },
 ]
 const agentValue = ref('harbor')
-const agentLabel = ref('蝰蛇')
+const agentLabel = ref('海神')
 const agents = [
   {
     label: '亚星卓',
@@ -205,7 +205,7 @@ const skillInfo = [
   {
     agent: 'harbor',
     index: 1,
-    type: 'control',
+    type: 'throw',
   },
   {
     agent: 'harbor',
@@ -243,7 +243,7 @@ const skillInfo = [
     type: 'polygon',
   },
 ]
-const skillType = ref('curve')
+const skillType = ref('line')
 //#endregion
 
 //#region 画布
@@ -310,7 +310,12 @@ onBeforeUnmount(() => {
 })
 //#endregion
 
-//#region 直线技能
+//#endregion
+
+//#region 技能绘制
+
+//#region 抛掷技能
+// BUG 技能点击绑定逻辑
 const rangeConfig = ref({
   // 接入数据库数据
   radius: 100,
@@ -334,7 +339,7 @@ const agentConfig = ref({
   visible: false,
   name: 'skillAgent',
 })
-const lineConfig = ref({
+const throwConfig = ref({
   stroke: '#6c7dff',
   strokeWidth: 2,
   lineCap: 'round',
@@ -506,6 +511,85 @@ const polygonMove = () => {
   const group = stage.findOne('.mapGroup')
   const polygon = stage.findOne('.skillPolygon')
   console.log(polygon.position())
+}
+//#endregion
+
+//#region 直线技能
+const lineConfig = ref({
+  x: 100,
+  y: 200,
+  points: [0, 0, 300, 0],
+  stroke: 'red',
+  strokeWidth: 10,
+  draggable: true,
+  name: 'skillLine',
+})
+const lineStartControl = ref({
+  x: 100,
+  y: 200,
+  fill: '#fff',
+  stroke: '#000',
+  strokeWidth: 2,
+  width: 10,
+  height: 10,
+  offsetX: 5,
+  offsetY: 5,
+  rotation: 45,
+  name: 'lineStartControl',
+})
+const lineEndControl = ref({
+  x: 400,
+  y: 200,
+  fill: '#fff',
+  stroke: '#000',
+  strokeWidth: 2,
+  radius: 6,
+  name: 'lineEndControl',
+})
+let cos = 1,
+  sin = 0
+const lineMove = (e) => {
+  const stage = stageRef.value.getNode()
+  const line = stage.findOne('.skillLine')
+  const startControl = stage.findOne('.lineStartControl')
+  const endControl = stage.findOne('.lineEndControl')
+  // line的拖动只改变x，y，不改变points
+  startControl.position({ x: line.position().x, y: line.position().y })
+  endControl.position({ x: 300 * cos + line.position().x, y: 300 * sin + line.position().y })
+}
+const lecMoveStart = (event) => {
+  const e = event.evt
+  const el = e.currentTarget
+  el.addEventListener('mousemove', lecMove)
+  el.addEventListener('mouseup', lecMoveEnd)
+
+  function lecMove() {
+    const stage = stageRef.value.getNode()
+    const group = stage.findOne('.mapGroup')
+    const line = stage.findOne('.skillLine')
+    const startControl = stage.findOne('.lineStartControl')
+    const endControl = stage.findOne('.lineEndControl')
+    // NOTE 要根据最近的有定位的父级元素获取相对定位才是准的。group如果不定义x,y，则没有定位，故会越过这一层。
+    const startPosition = { x: startControl.position().x, y: startControl.position().y }
+    const relativePosition = { x: group.getRelativePointerPosition().x, y: group.getRelativePointerPosition().y }
+    const c = Math.sqrt((relativePosition.x - startPosition.x) ** 2 + (relativePosition.y - startPosition.y) ** 2)
+    const a = relativePosition.x - startPosition.x
+    const b = relativePosition.y - startPosition.y
+    cos = a / c
+    sin = b / c
+    let angle = (Math.acos(cos) * 180) / Math.PI
+    if (relativePosition.y < startPosition.y) {
+      angle = -angle
+    }
+    line.rotation(angle)
+    const endPosition = { x: 300 * cos + line.position().x, y: 300 * sin + line.position().y }
+    endControl.position(endPosition)
+  }
+
+  function lecMoveEnd() {
+    el.removeEventListener('mousemove', lecMove)
+    el.removeEventListener('mouseup', lecMoveEnd)
+  }
 }
 //#endregion
 
@@ -741,7 +825,7 @@ const submit = async (form) => {
             <!-- throw型 -->
             <v-group v-if="skillType == 'throw'">
               <!-- 连线 -->
-              <v-line :config="lineConfig" />
+              <v-line :config="throwConfig" />
               <!-- 特工图标 -->
               <v-image :config="agentConfig" @dragmove="dragIcon" />
               <v-group :config="skillGroupConfig" @dragmove="dragIcon">
@@ -854,6 +938,12 @@ const submit = async (form) => {
                   取消
                 </button>
               </div>
+            </v-group>
+            <!-- line型 -->
+            <v-group v-if="skillType == 'line'">
+              <v-line :config="lineConfig" @dragmove="lineMove" />
+              <v-rect :config="lineStartControl" />
+              <v-circle :config="lineEndControl" @mousedown="lecMoveStart" />
             </v-group>
           </v-group>
         </v-layer>
