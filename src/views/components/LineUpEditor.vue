@@ -55,7 +55,7 @@ const maps = [
   },
 ]
 const agentValue = ref('harbor')
-const agentLabel = ref('海神')
+const agentLabel = ref('蝰蛇')
 const agents = [
   {
     label: '亚星卓',
@@ -222,30 +222,33 @@ const skillInfo = [
     index: 4,
     type: 'line',
   },
+  {
+    agent: 'viper',
+    index: 1,
+    type: 'throw',
+  },
+  {
+    agent: 'viper',
+    index: 2,
+    type: 'throw',
+  },
+  {
+    agent: 'viper',
+    index: 3,
+    type: 'line',
+  },
+  {
+    agent: 'viper',
+    index: 4,
+    type: 'polygon',
+  },
 ]
 const skillType = ref('curve')
 //#endregion
 
-//#region 地图和技能选择
-// 技能选择
-const agentSelect = (label) => {
-  agentLabel.value = label
-  skillSelectIconList.value = [
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_1.webp`,
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_2.webp`,
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_3.webp`,
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_4.webp`,
-  ]
-  skillSelectAgent.value = `/src/assets/agent/${agentValue.value}/${agentValue.value}.webp`
-}
-const skillClick = (index) => {
-  // 通过特工名字和技能代号确定技能类型
-  skillType.value = skillInfo.find((skill) => skill.agent == agentValue.value && skill.index == index).type
-  console.log(skillType.value)
-}
-//#endregion
-
 //#region 画布
+
+//#region 画布属性
 const getImageUrl = (url) => {
   return new URL(url, import.meta.url).href
 }
@@ -273,6 +276,8 @@ const mapImageConfig = ref({
   image: map,
   name: 'mapImage',
 })
+//#endregion
+
 //#region 窗口尺寸监听
 const observer = new ResizeObserver(() => {
   // 画布尺寸随窗口变化
@@ -376,15 +381,15 @@ const dragIcon = () => {
 //#endregion
 
 //#region 曲线技能
+const curveControlList = ref([])
+const pointList = []
 const curveConfig = ref({
-  stroke: 'blue',
+  stroke: '#6c7dff',
   strokeWidth: 4,
   lineCap: 'round',
   tension: 0.4,
   name: 'skillCurve',
 })
-const curveControlList = ref([])
-const pointList = []
 const curveClick = (e) => {
   // NOTE konva访问常规事件属性要加evt
   if (skillType.value != 'curve' || e.evt.button == 2) return
@@ -392,11 +397,14 @@ const curveClick = (e) => {
   const group = stage.findOne('.mapGroup')
   const curve = stage.findOne('.skillCurve')
   pointList.push(group.getRelativePointerPosition().x, group.getRelativePointerPosition().y)
+  // NOTE line.points会被传入的points数组的更新，从而触发自动更新。即只需绑定一次，后面只操作points数组即可
   curve.points(pointList)
   curveControlList.value.push({
     x: group.getRelativePointerPosition().x,
     y: group.getRelativePointerPosition().y,
-    fill: '#ff4655',
+    fill: '#fff',
+    stroke: '#000',
+    strokeWidth: 2,
     radius: 6,
     name: Date.now().toString(),
     draggable: true,
@@ -405,10 +413,13 @@ const curveClick = (e) => {
 const curveControlDrag = (name) => {
   const index = curveControlList.value.findIndex((e) => e.name == name)
   const stage = stageRef.value.getNode()
-  const curve = stage.findOne('.skillCurve')
   const circle = stage.findOne(`.${name}`)
   pointList.splice(index * 2, 2, circle.position().x, circle.position().y)
-  curve.points(pointList)
+  // FIXME 加了tension后的曲线，无法主动更新，需手动更新
+  if (skillType.value == 'curve') {
+    const curve = stage.findOne('.skillCurve')
+    curve.points(pointList)
+  }
 }
 // 右键菜单
 const editMenuVisible = ref(false)
@@ -426,7 +437,6 @@ const insertControl = () => {
   editMenuVisible.value = false
   const stage = stageRef.value.getNode()
   const group = stage.findOne('.mapGroup')
-  const curve = stage.findOne('.skillCurve')
   const x = group.getRelativePointerPosition().x,
     y = group.getRelativePointerPosition().y
   let i = 0
@@ -439,7 +449,6 @@ const insertControl = () => {
     }
   }
   pointList.splice(i + 2, 0, x, y)
-  curve.points(pointList)
   curveControlList.value.splice(i / 2 + 1, 0, {
     x: x,
     y: y,
@@ -458,18 +467,84 @@ const curveControlMenu = (name, e) => {
 }
 const deleteControl = () => {
   editMenuVisible.value = false
-  const stage = stageRef.value.getNode()
-  const curve = stage.findOne('.skillCurve')
   curveControlList.value.splice(tempIndex, 1)
   pointList.splice(tempIndex * 2, 2)
-  curve.points(pointList)
 }
+//#endregion
+
+//#region 多边形技能
+const polygonConfig = ref({
+  stroke: '#6c7dff',
+  strokeWidth: 5,
+  lineJoin: 'bevel',
+  fill: 'rgba(0, 0, 0, 0.3)',
+  closed: true,
+  // draggable: true,
+  name: 'skillPolygon',
+})
+const polygonClick = (e) => {
+  //复用曲线技能的controlList和pointList
+  if (skillType.value != 'polygon' || e.evt.button == 2) return
+  const stage = stageRef.value.getNode()
+  const group = stage.findOne('.mapGroup')
+  const polygon = stage.findOne('.skillPolygon')
+  pointList.push(group.getRelativePointerPosition().x, group.getRelativePointerPosition().y)
+  polygon.points(pointList)
+  curveControlList.value.push({
+    x: group.getRelativePointerPosition().x,
+    y: group.getRelativePointerPosition().y,
+    fill: '#fff',
+    stroke: '#000',
+    strokeWidth: 2,
+    radius: 6,
+    name: Date.now().toString(),
+    draggable: true,
+  })
+}
+const polygonMove = () => {
+  const stage = stageRef.value.getNode()
+  const group = stage.findOne('.mapGroup')
+  const polygon = stage.findOne('.skillPolygon')
+  console.log(polygon.position())
+}
+//#endregion
 
 //#endregion
 
+//#region 地图和技能选择
+// 技能选择
+const agentSelect = (label) => {
+  agentLabel.value = label
+  skillSelectIconList.value = [
+    `/src/assets/agent/${agentValue.value}/${agentValue.value}_1.webp`,
+    `/src/assets/agent/${agentValue.value}/${agentValue.value}_2.webp`,
+    `/src/assets/agent/${agentValue.value}/${agentValue.value}_3.webp`,
+    `/src/assets/agent/${agentValue.value}/${agentValue.value}_4.webp`,
+  ]
+  skillSelectAgent.value = `/src/assets/agent/${agentValue.value}/${agentValue.value}.webp`
+}
+const skillClick = (index) => {
+  // 通过特工名字和技能代号确定技能类型
+  skillType.value = skillInfo.find((skill) => skill.agent == agentValue.value && skill.index == index).type
+  console.log(skillType.value)
+  // line过点清空
+  if (skillType.value == 'curve' || skillType.value == 'polygon') {
+    // console.log(pointList)
+    // const stage = stageRef.value.getNode()
+    // const curve = stage.findOne('.skillCurve')
+    // curve.points(pointList)
+    // stage.batchDraw()
+    curveControlList.value = []
+    pointList.splice(0, pointList.length)
+
+    console.log(curveControlList.value)
+    console.log(pointList)
+  }
+}
 //#endregion
 
 //#region 设置栏
+// 设置栏收起动画
 const settingBarVisible = ref(false)
 const settingBarSwitchOn = () => {
   const box = document.querySelector('.setting-bar')
@@ -483,10 +558,13 @@ const settingBarSwitchOff = () => {
   box.classList.remove('setting-bar-anime-unfold')
   box.classList.add('setting-bar-anime-fold')
 }
+// 开关按钮
 const pointNameVisible = ref(false),
   skillBallVisible = ref(false),
-  lightCurtainVisible = ref(false)
+  lightCurtainVisible = ref(false),
+  controlAnchorVisible = ref(true)
 
+// 特工偏好列表
 const settingBarAgentClick = (e, agent) => {
   let dom = document.getElementsByClassName('agent-img')
   for (let i = 0; i < dom.length; i++) {
@@ -657,7 +735,7 @@ const submit = async (form) => {
     <div class="map-container" ref="mapContainerRef" @contextmenu.prevent>
       <v-stage ref="stageRef" :config="stageConfig">
         <v-layer>
-          <v-group :config="groupConfig" @click="curveClick">
+          <v-group :config="groupConfig" @click="(curveClick($event), polygonClick($event))">
             <!-- 背景地图 -->
             <v-image :config="mapImageConfig" />
             <!-- throw型 -->
@@ -679,6 +757,58 @@ const submit = async (form) => {
             <v-group v-if="skillType == 'curve'">
               <v-line :config="curveConfig" @contextmenu="curveMenu($event)" />
               <v-circle
+                v-if="controlAnchorVisible"
+                v-for="circle in curveControlList"
+                :config="circle"
+                @dragmove="curveControlDrag(circle.name)"
+                @contextmenu="curveControlMenu(circle.name, $event)"
+              />
+              <!-- 右键菜单 -->
+              <div
+                v-if="editMenuVisible"
+                :style="{
+                  position: 'absolute',
+                  left: menuPosition.x + 'px',
+                  top: menuPosition.y + 'px',
+                  width: '60px',
+                  backgroundColor: '#1a1a1a',
+                  boxShadow: '0 0 5px grey',
+                  zIndex: 99,
+                }"
+              >
+                <button
+                  v-if="insertVisible"
+                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
+                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
+                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
+                  @click="insertControl"
+                >
+                  插入
+                </button>
+                <button
+                  v-if="deleteVisible"
+                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
+                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
+                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
+                  @click="deleteControl"
+                >
+                  删除
+                </button>
+                <button
+                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
+                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
+                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
+                  @click="editMenuVisible = false"
+                >
+                  取消
+                </button>
+              </div>
+            </v-group>
+            <!-- polygon型 -->
+            <v-group v-if="skillType == 'polygon'">
+              <v-line :config="polygonConfig" @dragmove="polygonMove" @contextmenu="curveMenu($event)" />
+              <v-circle
+                v-if="controlAnchorVisible"
                 v-for="circle in curveControlList"
                 :config="circle"
                 @dragmove="curveControlDrag(circle.name)"
@@ -835,6 +965,10 @@ const submit = async (form) => {
         <div class="flex-center">
           <div class="large-text">出生光幕</div>
           <el-switch size="large" class="setting-switch" v-model="lightCurtainVisible" />
+        </div>
+        <div class="flex-center">
+          <div class="large-text">控制锚点</div>
+          <el-switch size="large" class="setting-switch" v-model="controlAnchorVisible" />
         </div>
         <p class="label-text">特工偏好</p>
         <div class="agent-img-container">
