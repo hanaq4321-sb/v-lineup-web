@@ -1085,11 +1085,11 @@ const settingBarAgentClick = (e, agent) => {
 
 <style lang="scss">
 /* 通过选择父组件的元素限定style的生效范围 */
-.map-select {
+.map-select1 {
   .el-select__wrapper {
     min-height: 100px;
     height: 100px;
-    background-image: url('../../assets/map/cover/ascent.png');
+    // background-image: url('../../assets/map/cover/ascent.png');
     background-repeat: no-repeat;
     background-size: cover;
     font-size: 27px;
@@ -1108,7 +1108,7 @@ const settingBarAgentClick = (e, agent) => {
 // }
 
 /* 下拉栏在popper组件中，需要定义通过popper-class定义类名访问 */
-.map-select-dropdown {
+.map-select-dropdown1 {
   --el-popper-bg-color-light: #1a1a1a !important;
   --el-border-color-light: rgba(0, 0, 0, 0);
 
