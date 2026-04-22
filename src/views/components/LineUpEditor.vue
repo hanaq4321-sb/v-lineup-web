@@ -88,7 +88,7 @@ const agents = [
     value: 'breach',
   },
   {
-    label: '壹决',
+    label: '炼狱',
     value: 'brimstone',
   },
   {
@@ -196,13 +196,14 @@ const agents = [
     value: 'yoru',
   },
 ]
+// NOTE public中文件无需添加/public。且不需要import或require、getUrl
 const skillSelectIconList = ref([
-  `/src/assets/agent/${agentValue.value}/${agentValue.value}_1.webp`,
-  `/src/assets/agent/${agentValue.value}/${agentValue.value}_2.webp`,
-  `/src/assets/agent/${agentValue.value}/${agentValue.value}_3.webp`,
-  `/src/assets/agent/${agentValue.value}/${agentValue.value}_4.webp`,
+  `agent/${agentValue.value}/${agentValue.value}_1.webp`,
+  `agent/${agentValue.value}/${agentValue.value}_2.webp`,
+  `agent/${agentValue.value}/${agentValue.value}_3.webp`,
+  `agent/${agentValue.value}/${agentValue.value}_4.webp`,
 ])
-const skillSelectAgent = ref(`/src/assets/agent/${agentValue.value}/${agentValue.value}.webp`)
+const skillSelectAgent = ref(`agent/${agentValue.value}/${agentValue.value}.webp`)
 const skillInfo = [
   {
     agent: 'sova',
@@ -272,7 +273,7 @@ const skillInfo = [
   {
     agent: 'fade',
     index: 2,
-    type: 'throw',
+    type: 'circle',
   },
   {
     agent: 'fade',
@@ -323,6 +324,26 @@ const skillInfo = [
     agent: 'astra',
     index: 4,
     type: 'line',
+  },
+  {
+    agent: 'brimstone',
+    index: 1,
+    type: 'circle',
+  },
+  {
+    agent: 'brimstone',
+    index: 2,
+    type: 'throwGround',
+  },
+  {
+    agent: 'brimstone',
+    index: 3,
+    type: 'circle',
+  },
+  {
+    agent: 'brimstone',
+    index: 4,
+    type: 'circle',
   },
 ]
 const skillType = ref('circle')
@@ -356,7 +377,7 @@ const groupConfig = ref({
   stroke: 'red',
   strokeWidth: 2,
 })
-let [map] = useImage(getImageUrl(`../../assets/map/detail/${mapValue.value}.png`))
+let [map] = useImage(`map/detail/${mapValue.value}.png`)
 const mapImageConfig = ref({
   x: 0,
   y: 0,
@@ -399,12 +420,13 @@ onBeforeUnmount(() => {
 //#region 技能绘制
 
 //#region 更改图片
-const [skillImg] = useImage(getImageUrl(`../../assets/agent/${agentValue.value}/${agentValue.value}_3.webp`))
-const [agentImg] = useImage(getImageUrl(`../../assets/agent/${agentValue.value}/${agentValue.value}.webp`))
+const [skillImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)
+const [agentImg] = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)
 const changeImg = (index) => {
   const type = skillType.value
-  let [skillImg] = useImage(getImageUrl(`../../assets/agent/${agentValue.value}/${agentValue.value}_${index}.webp`))
-  let [agentImg] = useImage(getImageUrl(`../../assets/agent/${agentValue.value}/${agentValue.value}.webp`))
+  let [skillImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}.webp`)
+  let [agentImg] = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)
+  let [skillDetailImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}_detail.png`)
   if (type == 'throw') {
     throwSkillIconConfig.value.image = skillImg
     throwAgentIconConfig.value.image = agentImg
@@ -413,8 +435,7 @@ const changeImg = (index) => {
     controlImgConfig.value.image = skillImg
   }
   if (type == 'circle') {
-    console.log(skillImg)
-    circleStrokeConfig.value.fillPatternImage = skillImg
+    circleImgConfig.value.image = skillDetailImg
   }
 }
 //#endregion
@@ -690,7 +711,6 @@ const lecMoveStart = (event) => {
 //#endregion
 
 //#region 控制技能
-const [fadeImg] = useImage(getImageUrl('/src/assets/agent/fade/fade_1.webp'))
 const groupControlIconConfig = ref({
   x: 200,
   y: 200,
@@ -705,7 +725,7 @@ const controlStrokeConfig = ref({
   name: 'skillControlStroke',
 })
 const controlImgConfig = ref({
-  image: fadeImg,
+  image: skillImg,
   width: 30,
   height: 30,
   offsetX: 15,
@@ -786,22 +806,29 @@ const controlAnimaEnd = () => {
 
 //#region 圆形技能
 const circleStrokeConfig = ref({
-  radius: 400,
+  radius: 28,
   stroke: '#fff',
-  strokeWidth: '5',
+  strokeWidth: 4,
   shadowColor: '#e18ae5',
-  shadowBlur: 5,
+  shadowBlur: 4,
   shadowOpacity: 1,
-  fillPatternImage: skillImg,
-  fillPatternOffset: { x: 270, y: 270 },
-  fillPatternScale: { x: 0.19, y: 0.19 },
-  fillPatternRepeat: 'no-repeat',
-  name: 'skillCircleStroke',
-  // fill: 'red',
+})
+const circleShadeConfig = ref({
+  radius: 28,
+  fill: 'rgba(225,138,229,0.1)',
+})
+const [clove] = useImage('agent/clove/clove_3_detail.png')
+const circleImgConfig = ref({
+  width: 66.5,
+  height: 66.5,
+  offset: { x: 33.25, y: 33.25 },
+  cornerRadius: 33.25,
+  image: clove,
+  opacity: 0.9,
 })
 const circleCenterConfig = ref({
   radius: 3,
-  fill: '#cdffff',
+  fill: '#fff',
 })
 //#endregion
 
@@ -810,27 +837,29 @@ const circleCenterConfig = ref({
 //#region 地图和技能选择
 // 地图选择
 // NOTE 直接在src中写可以使用上下级相对路径，但传入属性时只能从src传入
-const selectWrapperImg = ref(`url(/src/assets/map/cover/${mapValue.value}.png)`)
+const selectWrapperImg = ref(`url(map/cover/${mapValue.value}.png)`)
 const mapChange = () => {
-  let [map1] = useImage(getImageUrl(`../../assets/map/detail/${mapValue.value}.png`))
+  let [map1] = useImage(`map/detail/${mapValue.value}.png`)
   mapImageConfig.value.image = map1
-  selectWrapperImg.value = `url(/src/assets/map/cover/${mapValue.value}.png)`
+  selectWrapperImg.value = `url(map/cover/${mapValue.value}.png)`
 }
 // 技能选择
 const agentSelect = (label) => {
   agentLabel.value = label
   skillSelectIconList.value = [
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_1.webp`,
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_2.webp`,
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_3.webp`,
-    `/src/assets/agent/${agentValue.value}/${agentValue.value}_4.webp`,
+    `agent/${agentValue.value}/${agentValue.value}_1.webp`,
+    `agent/${agentValue.value}/${agentValue.value}_2.webp`,
+    `agent/${agentValue.value}/${agentValue.value}_3.webp`,
+    `agent/${agentValue.value}/${agentValue.value}_4.webp`,
   ]
-  skillSelectAgent.value = `/src/assets/agent/${agentValue.value}/${agentValue.value}.webp`
+  skillSelectAgent.value = `agent/${agentValue.value}/${agentValue.value}.webp`
 }
-let lastIndex = -1
+let lastIndex = -1,
+  lastAgent = ''
 const skillClick = (index) => {
-  if (index == lastIndex) return
+  if (index == lastIndex && agentValue.value == lastAgent) return
   lastIndex = index
+  lastAgent = agentValue.value
   // 通过特工名字和技能代号确定技能类型
   skillType.value = skillInfo.find((skill) => skill.agent == agentValue.value && skill.index == index).type
   console.log(skillType.value)
@@ -1008,7 +1037,7 @@ const submit = async (form) => {
         <el-option v-for="map in maps" :key="map.value" :label="map.label" :value="map.value">
           <div style="position: relative">
             <!-- TODO width非固定值 -->
-            <img :src="getImageUrl(`../../assets/map/cover/${map.value}.png`)" style="width: 257px; height: auto; object-fit: cover" />
+            <img :src="`map/cover/${map.value}.png`" style="width: 257px; height: auto; object-fit: cover" />
             <span class="large-text" style="position: absolute; left: 20px">{{ map.label }}</span>
           </div>
         </el-option>
@@ -1080,6 +1109,7 @@ const submit = async (form) => {
                 <v-circle :config="throwSkillCenterConfig" v-else />
               </v-group>
             </v-group>
+            <!-- throwGround型 -->
             <!-- curve型 -->
             <v-group :config="{ name: 'groupCurve' }" v-if="skillType == 'curve'">
               <v-line :config="curveConfig" @contextmenu="curveMenu($event)" />
@@ -1205,11 +1235,15 @@ const submit = async (form) => {
                 <v-image :config="controlImgConfig" />
               </v-group>
             </v-group>
+            <!-- controlStraight型-->
             <!-- circle型 -->
             <v-group :config="{ name: 'groupCircle', x: 300, y: 400, draggable: true }" v-if="skillType == 'circle'">
-              <v-circle :config="circleStrokeConfig" />
-              <v-circle :config="circleCenterConfig" />
+              <v-circle :config="circleStrokeConfig" v-if="!skillIconVisible" />
+              <v-circle :config="circleShadeConfig" v-if="!skillIconVisible" />
+              <v-image :config="circleImgConfig" v-if="skillIconVisible" />
+              <v-circle :config="circleCenterConfig" v-if="!skillIconVisible" />
             </v-group>
+            <!-- place型 -->
           </v-group>
         </v-layer>
       </v-stage>
@@ -1333,7 +1367,7 @@ const submit = async (form) => {
         <div class="agent-img-container">
           <img
             class="agent-img"
-            :src="getImageUrl(`../../assets/agent/${item.value}/${item.value}.webp`)"
+            :src="`agent/${item.value}/${item.value}.webp`"
             v-for="(item, index) in agents"
             :key="index"
             @click="settingBarAgentClick($event, item.value)"
@@ -1352,7 +1386,7 @@ const submit = async (form) => {
   height: 100%;
   box-sizing: border-box;
   border: 1px solid red;
-  background: url('../../assets/bg.webp');
+  background: url('decorate/bg.webp');
   background-repeat: no-repeat;
   background-size: cover;
   overflow: hidden;

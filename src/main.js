@@ -7,7 +7,6 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import VueKonva from 'vue-konva' // 全局注册
 import router from './router/index'
-
 import 'element-plus/theme-chalk/index.css'
 
 const app = createApp(App)
