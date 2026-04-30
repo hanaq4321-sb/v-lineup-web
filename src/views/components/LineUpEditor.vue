@@ -23,7 +23,9 @@ import {
 import { ElMessage } from 'element-plus'
 import Konva from 'konva'
 import { ltp } from '../../utils/lineToPath'
+import { controlConfig, rotateControlCircle, rotateControlImg, controlHover, controlLeave } from '@/styles/js/publicJs.js'
 
+// overtest(event)
 //#region 地图和特工信息
 const mapValue = ref('breeze')
 const maps = [
@@ -76,8 +78,8 @@ const maps = [
     value: 'sunset',
   },
 ]
-const agentValue = ref('clove')
-const agentLabel = ref('暮蝶')
+const agentValue = ref('deadlock')
+const agentLabel = ref('钢索')
 const agents = [
   {
     label: '亚星卓',
@@ -213,7 +215,7 @@ const skillInfo = [
   {
     agent: 'sova',
     index: 2,
-    type: 'throw',
+    type: 'throwGround',
   },
   {
     agent: 'sova',
@@ -273,7 +275,7 @@ const skillInfo = [
   {
     agent: 'fade',
     index: 2,
-    type: 'circle',
+    type: 'throwGround',
   },
   {
     agent: 'fade',
@@ -293,7 +295,7 @@ const skillInfo = [
   {
     agent: 'clove',
     index: 2,
-    type: 'throw',
+    type: 'throwGround',
   },
   {
     agent: 'clove',
@@ -345,8 +347,28 @@ const skillInfo = [
     index: 4,
     type: 'circle',
   },
+  {
+    agent: 'deadlock',
+    index: 1,
+    type: 'place',
+  },
+  {
+    agent: 'deadlock',
+    index: 2,
+    type: 'place',
+  },
+  {
+    agent: 'deadlock',
+    index: 3,
+    type: 'throwGround',
+  },
+  {
+    agent: 'deadlock',
+    index: 4,
+    type: 'throwGround',
+  },
 ]
-const skillType = ref('circle')
+const skillType = ref('place')
 //#endregion
 
 //#region 画布
@@ -422,6 +444,7 @@ onBeforeUnmount(() => {
 //#region 更改图片
 const [skillImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)
 const [agentImg] = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)
+const [skillDetailImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_3_detail.png`)
 const changeImg = (index) => {
   const type = skillType.value
   let [skillImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}.webp`)
@@ -431,11 +454,19 @@ const changeImg = (index) => {
     throwSkillIconConfig.value.image = skillImg
     throwAgentIconConfig.value.image = agentImg
   }
+  if (type == 'throwGround') {
+    throwGroundIconCfg.value.image = skillImg
+    throwGroundAgentCfg.value.image = agentImg
+    throwGroundRealCfg.value.image = skillDetailImg
+  }
   if (type == 'control') {
     controlImgConfig.value.image = skillImg
   }
   if (type == 'circle') {
     circleImgConfig.value.image = skillDetailImg
+  }
+  if (type == 'place') {
+    placeImgCfg.value.image = skillImg
   }
 }
 //#endregion
@@ -496,6 +527,46 @@ const dragIcon = () => {
 }
 //#endregion
 
+//#region 抛掷落地技能
+const throwGroundLineCfg = ref({
+  points: [500, 300, 500, 700],
+  stroke: '#000',
+  strokeWidth: 5,
+})
+const throwGroundIconCfg = ref({
+  width: 46.06 * 2,
+  height: 46.06 * 2,
+  offset: { x: 46.06, y: 46.06 },
+  cornerRadius: 46.06,
+  scale: { x: 0.6, y: 0.6 },
+  image: skillImg,
+})
+const throwGroundRealCfg = ref({
+  width: 46.06 * 2,
+  height: 46.06 * 2,
+  offset: { x: 46.06 + 1, y: 46.06 },
+  cornerRadius: 46.06,
+  opacity: 0.9,
+  image: skillDetailImg,
+})
+const throwGroundCircleCfg = ref({
+  radius: 46.06,
+  fill: 'rgba(235, 217, 47,0.2)',
+  stroke: '#ebd92f',
+  strokeWidth: 4,
+})
+const throwGroundAgentCfg = ref({
+  x: 500,
+  y: 700,
+  width: 40,
+  height: 40,
+  offset: { x: 20, y: 20 },
+  fill: '#000',
+  cornerRadius: 5,
+  image: agentImg,
+})
+//#endregion
+
 //#region 曲线技能
 const curveControlList = ref([])
 const pointList = []
@@ -507,7 +578,7 @@ const curveConfig = ref({
   name: 'skillCurve',
 })
 const curveClick = (e) => {
-  // NOTE konva访问常规事件属性要加evt
+  // NOTE konva访问常规js事件属性要加evt，否则获取到的是konva的组件属性。即event为canvas代理过的，event.target获取的是konvaNode对象，
   if (skillType.value != 'curve' || e.evt.button == 2) return
   const stage = stageRef.value.getNode()
   const group = stage.findOne('.mapGroup')
@@ -832,6 +903,230 @@ const circleCenterConfig = ref({
 })
 //#endregion
 
+//#region 放置技能
+const placeType = ref('cross')
+const placeIconCircleCfg = ref({
+  radius: 15,
+  stroke: '#fff',
+  strokeWidth: 1,
+  fill: '#000',
+})
+const placeImgCfg = ref({
+  width: 30,
+  height: 30,
+  offset: { x: 15, y: 15 },
+  cornerRadius: 15,
+  scale: { x: 0.8, y: 0.8 },
+  image: skillImg,
+})
+// 矩形
+const placeRectCfg = ref({
+  width: 63,
+  height: 56,
+  offsetY: 28,
+  stroke: '#64bfff',
+  fill: 'rgba(100, 191, 255,0.1)',
+  strokeWidth: 2,
+})
+const groupPlaceRectRotateControl = ref({
+  x: 63 + 20,
+})
+const placeControlRotate = (event) => {
+  const e = event.evt.currentTarget
+  e.addEventListener('mousemove', rectMoveStart)
+  e.addEventListener('mouseup', rectMoveEnd)
+  function rectMoveStart(e) {
+    // 这个e是正常evernt，相当于上面的event.evt
+    // NOTE 阻止冒泡，防止触发父组件的drag事件
+    e.stopPropagation()
+    const stage = stageRef.value.getNode()
+    const mapGroup = stage.findOne('.mapGroup')
+    const placeGroup = stage.findOne('.groupPlace')
+    const pointerPosition = mapGroup.getRelativePointerPosition()
+    const centerPosition = placeGroup.position()
+    const a = pointerPosition.x - centerPosition.x
+    const c = Math.sqrt((pointerPosition.x - centerPosition.x) ** 2 + (pointerPosition.y - centerPosition.y) ** 2)
+    let cos = a / c
+    let angle = (Math.acos(cos) / Math.PI) * 180
+    if (pointerPosition.y < centerPosition.y) {
+      angle = -angle
+    }
+    placeGroup.rotation(angle)
+  }
+  function rectMoveEnd() {
+    e.removeEventListener('mousemove', rectMoveStart)
+    e.removeEventListener('mouseup', rectMoveEnd)
+  }
+}
+// 圆形
+const placeCircleCfg = ref({
+  radius: 126,
+  fill: 'rgba(255, 143, 36,0.1)',
+  stroke: '#ff8f24',
+
+  strokeWidth: 2,
+})
+// 扇形
+const sectorX = Math.cos((50 / 180) * Math.PI) * 70
+const sectorY = Math.sin((50 / 180) * Math.PI) * 70
+const placeSectorPath = ref({
+  data: `M 0,0 L ${sectorX},${-sectorY} M 0,0 L ${sectorX},${sectorY}`,
+  stroke: '#fff',
+  strokeWidth: 2,
+})
+const placeSectorWedge = ref({
+  angle: 100,
+  radius: 70,
+  rotation: -50,
+  fillLinearGradientStartPoint: { x: 0, y: 0 },
+  fillLinearGradientEndPoint: { x: 70, y: 70 },
+  fillLinearGradientColorStops: [0, 'rgba(247, 222, 49,0.8)', 1, 'rgba(247, 222, 49,0)'],
+})
+const groupPlaceSectorRotateControl = ref({
+  x: 70 + 20,
+})
+// 直线
+const placeStraightStartControl = ref({
+  x: -52.5,
+  radius: 7,
+  fill: '#fff',
+  stroke: '#000',
+  strokeWidth: 2,
+})
+const placeStraightEndControl = ref({
+  x: 52.5,
+  radius: 7,
+  fill: '#fff',
+  stroke: '#000',
+  strokeWidth: 2,
+})
+const placeStraightLine = ref({
+  points: [-52.5, 0, 52.5, 0],
+  stroke: '#93d5ff',
+  strokeWidth: 4,
+  name: 'placeStraightLine',
+})
+const placeStriaghtControlMove = (event, index) => {
+  const node = event.currentTarget
+  const e = event.evt.currentTarget
+  e.addEventListener('mousemove', moveStart)
+  e.addEventListener('mouseup', moveEnd)
+  const stage = stageRef.value.getNode()
+  const groupPlace = stage.findOne('.groupPlace')
+  const line = stage.findOne('.placeStraightLine')
+  const pointList = line.points()
+  const groupPlaceIcon = stage.findOne('.groupPlaceIcon')
+  function moveStart(e) {
+    e.stopPropagation()
+    const anotherIndex = 1 - index
+    const anotherPosition = { x: pointList[anotherIndex * 2], y: pointList[anotherIndex * 2 + 1] }
+    const pointerPosition = groupPlace.getRelativePointerPosition()
+    let d = Math.sqrt((pointerPosition.x - anotherPosition.x) ** 2 + (pointerPosition.y - anotherPosition.y) ** 2)
+    console.log(d)
+    // 超出最大距离的限制，类似旋转
+    if (d > 105) {
+      const r = 105 / d
+      const x = (pointerPosition.x - anotherPosition.x) * r + anotherPosition.x
+      const y = (pointerPosition.y - anotherPosition.y) * r + anotherPosition.y
+      node.position({ x: x, y: y })
+      pointList.splice(index * 2, 2, x, y)
+    } else {
+      node.position(pointerPosition)
+      pointList.splice(index * 2, 2, pointerPosition.x, pointerPosition.y)
+    }
+    line.points(pointList)
+    groupPlaceIcon.position({ x: (pointList[2] + pointList[0]) / 2, y: (pointList[3] + pointList[1]) / 2 })
+  }
+  function moveEnd() {
+    e.removeEventListener('mousemove', moveStart)
+    e.removeEventListener('mouseup', moveEnd)
+  }
+}
+// 十字
+const crossX = 70 * Math.cos(Math.PI / 4)
+const [yaoTouIcon] = useImage('image/icon/rotate.png')
+const groupPlaceCrossControl = ref({
+  x: crossX + 40,
+})
+const placeCrossControl1 = ref({
+  x: -crossX,
+  y: -crossX,
+  ...controlConfig,
+})
+const placeCrossControl2 = ref({
+  x: crossX,
+  y: -crossX,
+  ...controlConfig,
+})
+const placeCrossControl3 = ref({
+  x: crossX,
+  y: crossX,
+  ...controlConfig,
+})
+const placeCrossControl4 = ref({
+  x: -crossX,
+  y: crossX,
+  ...controlConfig,
+})
+const placeCrossLine1 = ref({
+  points: [-crossX, -crossX, crossX, crossX],
+  stroke: '#93d5ff',
+  strokeWidth: 4,
+  name: 'placeStraightLine1',
+})
+const placeCrossLine2 = ref({
+  points: [crossX, -crossX, -crossX, crossX],
+  stroke: '#93d5ff',
+  strokeWidth: 4,
+  name: 'placeStraightLine2',
+})
+const placeControlAdjustLength = (event, index) => {
+  const e = event.evt.currentTarget
+  const node = event.currentTarget
+  e.addEventListener('mousemove', moveStart)
+  e.addEventListener('mouseup', moveEnd)
+  const stage = stageRef.value.getNode()
+  const placeGroup = stage.findOne('.groupPlace')
+  const line1 = stage.findOne('.placeStraightLine1')
+  const line2 = stage.findOne('.placeStraightLine2')
+  const pointList1 = line1.points()
+  const pointList2 = line2.points()
+  const groupIcon = stage.findOne('.groupPlaceIcon')
+  function moveStart(e) {
+    e.stopPropagation()
+    // 仅限45度，x=y
+    const x = placeGroup.getRelativePointerPosition().x
+    let d = 0
+    if (node.position().x >= 0) {
+      d = x / Math.cos(Math.PI / 4)
+    } else {
+      d = -x / Math.cos(Math.PI / 4)
+    }
+    if (d < 15) {
+      // TODO 多点归零
+      groupIcon.zIndex(0)
+    } else if (groupIcon.zIndex() == 0) {
+      groupIcon.zIndex(1)
+    }
+    if (d <= 0 || d > 70) return
+    // 旋转并不会影响位置的变化。因为旋转只是在原有位置的情况下改变角度，类似先定位再旋转
+    if (index == 0 || index == 2) {
+      node.position({ x: x, y: x })
+      pointList1.splice(index, 2, x, x)
+      line1.points(pointList1)
+    } else {
+      node.position({ x: x, y: -x })
+      pointList2.splice(index - 1, 2, x, -x)
+      line2.points(pointList2)
+    }
+  }
+  function moveEnd() {
+    e.removeEventListener('mousemove', moveStart)
+    e.removeEventListener('mouseup', moveEnd)
+  }
+}
+//#endregion
+
 //#endregion
 
 //#region 地图和技能选择
@@ -1093,6 +1388,7 @@ const submit = async (form) => {
         <v-layer>
           <v-group :config="groupConfig" @click="(curveClick($event), polygonClick($event), controlClick($event))">
             <!-- 背景地图 -->
+            <!-- TODO 背景地图应该单独一个group，方便地图的旋转与组件的旋转 -->
             <v-image :config="mapImageConfig" />
             <!-- throw型 -->
             <v-group :config="{ name: 'groupThrow' }" v-if="skillType == 'throw'">
@@ -1110,6 +1406,15 @@ const submit = async (form) => {
               </v-group>
             </v-group>
             <!-- throwGround型 -->
+            <v-group :config="{ name: 'groupThrowGroud' }" v-if="skillType == 'throwGround'">
+              <v-line :config="throwGroundLineCfg" />
+              <v-group :config="{ name: 'groupThrowGroudIcon', x: 500, y: 300, draggable: true }">
+                <v-image :config="throwGroundIconCfg" v-if="!skillIconVisible" />
+                <v-image :config="throwGroundRealCfg" v-if="skillIconVisible" />
+                <v-circle :config="throwGroundCircleCfg" v-if="!skillIconVisible" />
+              </v-group>
+              <v-image :config="throwGroundAgentCfg" />
+            </v-group>
             <!-- curve型 -->
             <v-group :config="{ name: 'groupCurve' }" v-if="skillType == 'curve'">
               <v-line :config="curveConfig" @contextmenu="curveMenu($event)" />
@@ -1244,6 +1549,72 @@ const submit = async (form) => {
               <v-circle :config="circleCenterConfig" v-if="!skillIconVisible" />
             </v-group>
             <!-- place型 -->
+            <v-group :config="{ name: 'groupPlace', x: 500, y: 500, draggable: true }" v-if="skillType == 'place'">
+              <v-group :config="{ name: 'groupPlaceRect' }" v-if="placeType == 'rect'">
+                <v-rect :config="placeRectCfg" />
+                <v-group :config="groupPlaceRectRotateControl" @mousedown="placeControlRotate" @mouseenter="controlHover" @mouseleave="controlLeave">
+                  <v-circle :config="rotateControlCircle" />
+                  <v-image :config="rotateControlImg" />
+                </v-group>
+              </v-group>
+              <v-group :config="{ name: 'groupPlaceCircle' }" v-if="placeType == 'circle'">
+                <v-circle :config="placeCircleCfg" />
+              </v-group>
+              <v-group :config="{ name: 'groupPlaceSector' }" v-if="placeType == 'sector'">
+                <v-wedge :config="placeSectorWedge" />
+                <v-path :config="placeSectorPath" />
+                <v-group
+                  :config="groupPlaceSectorRotateControl"
+                  @mousedown="placeControlRotate"
+                  @mouseenter="controlHover"
+                  @mouseleave="controlLeave"
+                >
+                  <v-circle :config="rotateControlCircle" />
+                  <v-image :config="rotateControlImg" />
+                </v-group>
+              </v-group>
+              <v-group :config="{ name: 'groupPlaceStraight' }" v-if="placeType == 'straight'">
+                <v-line :config="placeStraightLine" />
+                <v-circle :config="placeStraightStartControl" @mousedown="placeStriaghtControlMove($event, 0)" />
+                <v-circle :config="placeStraightEndControl" @mousedown="placeStriaghtControlMove($event, 1)" />
+              </v-group>
+              <v-group :config="{ name: 'groupPlaceCross' }" v-if="placeType == 'cross'">
+                <v-line :config="placeCrossLine1" />
+                <v-line :config="placeCrossLine2" />
+                <v-circle
+                  :config="placeCrossControl1"
+                  @mousedown="placeControlAdjustLength($event, 0)"
+                  @mouseenter="controlHover"
+                  @mouseleave="controlLeave"
+                />
+                <v-circle
+                  :config="placeCrossControl2"
+                  @mousedown="placeControlAdjustLength($event, 1)"
+                  @mouseenter="controlHover"
+                  @mouseleave="controlLeave"
+                />
+                <v-circle
+                  :config="placeCrossControl3"
+                  @mousedown="placeControlAdjustLength($event, 2)"
+                  @mouseenter="controlHover"
+                  @mouseleave="controlLeave"
+                />
+                <v-circle
+                  :config="placeCrossControl4"
+                  @mousedown="placeControlAdjustLength($event, 3)"
+                  @mouseenter="controlHover"
+                  @mouseleave="controlLeave"
+                />
+                <v-group :config="groupPlaceCrossControl" @mousedown="placeControlRotate" @mouseenter="controlHover" @mouseleave="controlLeave">
+                  <v-circle :config="rotateControlCircle" />
+                  <v-image :config="rotateControlImg" />
+                </v-group>
+              </v-group>
+              <v-group :config="{ name: 'groupPlaceIcon' }">
+                <v-circle :config="placeIconCircleCfg" />
+                <v-image :config="placeImgCfg" />
+              </v-group>
+            </v-group>
           </v-group>
         </v-layer>
       </v-stage>
