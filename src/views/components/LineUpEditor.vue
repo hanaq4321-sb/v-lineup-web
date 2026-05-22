@@ -1,3 +1,4 @@
+<!-- <script src="../../styles/js/editor.js"></script> -->
 <script setup>
 import { ref, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
@@ -23,8 +24,16 @@ import {
 import { ElMessage } from 'element-plus'
 import Konva from 'konva'
 import { ltp } from '../../utils/lineToPath'
-import { controlConfig, rotateControlCircle, rotateControlImg, controlHover, controlLeave } from '@/styles/js/publicJs.js'
-
+import {
+  controlConfig,
+  rotateControlCircle,
+  dragLineBothEnd,
+  rotateControlImg,
+  ControlRotate,
+  controlHover,
+  controlLeave,
+} from '@/styles/js/skill-editor'
+// TODO 曲线控制点可以用鼠标点击位置，检测遍历点的位置
 // overtest(event)
 //#region 地图和特工信息
 const mapValue = ref('breeze')
@@ -78,8 +87,8 @@ const maps = [
     value: 'sunset',
   },
 ]
-const agentValue = ref('deadlock')
-const agentLabel = ref('钢索')
+const agentValue = ref('raze')
+const agentLabel = ref('雷兹')
 const agents = [
   {
     label: '亚星卓',
@@ -198,7 +207,7 @@ const agents = [
     value: 'yoru',
   },
 ]
-// NOTE public中文件无需添加/public。且不需要import或require、getUrl
+// NOTE public中文件无需添加/public。且不需要import或require、getUrl。
 const skillSelectIconList = ref([
   `agent/${agentValue.value}/${agentValue.value}_1.webp`,
   `agent/${agentValue.value}/${agentValue.value}_2.webp`,
@@ -367,8 +376,28 @@ const skillInfo = [
     index: 4,
     type: 'throwGround',
   },
+  {
+    agent: 'raze',
+    index: 1,
+    type: 'controlStraight',
+  },
+  {
+    agent: 'raze',
+    index: 2,
+    type: 'throwGround',
+  },
+  {
+    agent: 'raze',
+    index: 3,
+    type: 'throwGround',
+  },
+  {
+    agent: 'raze',
+    index: 4,
+    type: 'others',
+  },
 ]
-const skillType = ref('place')
+const skillType = ref('controlStraight')
 //#endregion
 
 //#region 画布
@@ -442,6 +471,7 @@ onBeforeUnmount(() => {
 //#region 技能绘制
 
 //#region 更改图片
+
 const [skillImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)
 const [agentImg] = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)
 const [skillDetailImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_3_detail.png`)
@@ -481,9 +511,9 @@ const groupThrowIconConfig = ref({
 const throwSkillRangeConfig = ref({
   // 接入数据库数据
   radius: 30 * 7,
-  fill: 'rgba(0,255,255,0.1)',
+  fill: 'rgba(0,0,0,1)',
   stroke: '#00FFFF',
-  strokeWidth: 5,
+  strokeWidth: 4,
   name: 'skillThrowRange',
 })
 const throwSkillIconConfig = ref({
@@ -513,17 +543,14 @@ const throwAgentIconConfig = ref({
 })
 const throwLineConfig = ref({
   stroke: '#00FFFF',
-  strokeWidth: 5,
+  strokeWidth: 4,
   lineCap: 'round',
   name: 'skillThrowLine',
   points: [500, 300, 500, 700],
 })
-const dragIcon = () => {
-  const stage = stageRef.value.getNode()
-  const line = stage.findOne('.skillThrowLine')
-  const agent = stage.findOne('.skillThrowAgentIcon')
-  const groupIcon = stage.findOne('.groupThrowIcon')
-  line.points([groupIcon.position().x, groupIcon.position().y, agent.position().x, agent.position().y])
+let skillRadius = -1
+if (skillRadius == -1) {
+  throwSkillRangeConfig.value = { fill: 'rgba(0,0,0,0.8)', radius: '18', strokeWidth: 0 }
 }
 //#endregion
 
@@ -531,7 +558,8 @@ const dragIcon = () => {
 const throwGroundLineCfg = ref({
   points: [500, 300, 500, 700],
   stroke: '#000',
-  strokeWidth: 5,
+  strokeWidth: 4,
+  name: 'throwGroundLine',
 })
 const throwGroundIconCfg = ref({
   width: 46.06 * 2,
@@ -564,11 +592,13 @@ const throwGroundAgentCfg = ref({
   fill: '#000',
   cornerRadius: 5,
   image: agentImg,
+  draggable: true,
+  name: 'throwGroundAgent',
 })
 //#endregion
 
 //#region 曲线技能
-const curveControlList = ref([])
+const controlAnchorList = ref([])
 const pointList = []
 const curveConfig = ref({
   stroke: '#6c7dff',
@@ -577,16 +607,22 @@ const curveConfig = ref({
   tension: 0.5,
   name: 'skillCurve',
 })
-const curveClick = (e) => {
+const editMenuVisible = ref(false)
+const addNewControlAnchor = (e) => {
   // NOTE konva访问常规js事件属性要加evt，否则获取到的是konva的组件属性。即event为canvas代理过的，event.target获取的是konvaNode对象，
   if (skillType.value != 'curve' || e.evt.button == 2) return
+  // 点击空白处关闭右键菜单
+  if (editMenuVisible.value == true) {
+    editMenuVisible.value = false
+    return
+  }
   const stage = stageRef.value.getNode()
   const group = stage.findOne('.mapGroup')
   const curve = stage.findOne('.skillCurve')
   pointList.push(group.getRelativePointerPosition().x, group.getRelativePointerPosition().y)
   // NOTE line.points会被传入的points数组的更新，从而触发自动更新。即只需绑定一次，后面只操作points数组即可
   curve.points(pointList)
-  curveControlList.value.push({
+  controlAnchorList.value.push({
     x: group.getRelativePointerPosition().x,
     y: group.getRelativePointerPosition().y,
     fill: '#fff',
@@ -597,12 +633,16 @@ const curveClick = (e) => {
     draggable: true,
   })
 }
-const curveControlDrag = (name) => {
-  const index = curveControlList.value.findIndex((e) => e.name == name)
+const controlAnchorDrag = (name) => {
+  const index = controlAnchorList.value.findIndex((e) => e.name == name)
   const stage = stageRef.value.getNode()
   const circle = stage.findOne(`.${name}`)
-  pointList.splice(index * 2, 2, circle.position().x, circle.position().y)
-  // FIXME 加了tension后的曲线，无法主动更新，需手动更新。polygon没加，所以不需要
+  // NOTE konva自带拖动改变的是已经渲染好的图形，不改变最初的配置文件。因为下面增删要用配置文件，所以要对配置单独再处理
+  controlAnchorList.value[index].x = circle.position().x
+  controlAnchorList.value[index].y = circle.position().y
+  pointList[index * 2] = circle.position().x
+  pointList[index * 2 + 1] = circle.position().y
+  // NOTE 加了tension后的曲线，无法主动更新，需手动更新。polygon和controlStraight没加，所以不需要
   if (skillType.value == 'curve') {
     const curve = stage.findOne('.skillCurve')
     curve.points(pointList)
@@ -613,53 +653,43 @@ const curveControlDrag = (name) => {
   }
 }
 // 右键菜单
-const editMenuVisible = ref(false)
-const deleteVisible = ref(false)
-const insertVisible = ref(false)
+const editInsertVisible = ref(true)
 const menuPosition = ref({ x: 0, y: 0 })
-let tempIndex = 0
-const curveMenu = (e) => {
-  editMenuVisible.value = true
-  deleteVisible.value = false
-  insertVisible.value = true
+let rightTargetIndex = 0
+const rightMenu = (name, e) => {
   menuPosition.value = { x: e.evt.clientX + 4, y: e.evt.clientY + 4 }
+  rightTargetIndex = controlAnchorList.value.findIndex((e) => e.name == name)
+  if (rightTargetIndex == 0) editInsertVisible.value = false
+  else editInsertVisible.value = true
+  editMenuVisible.value = true
 }
-const insertControl = () => {
+const insertControlAnchor = () => {
   editMenuVisible.value = false
   const stage = stageRef.value.getNode()
-  const group = stage.findOne('.mapGroup')
-  const x = group.getRelativePointerPosition().x,
-    y = group.getRelativePointerPosition().y
-  let i = 0
-  for (i = 0; i < pointList.length; i = i + 2) {
-    if (
-      ((x > pointList[i] && x < pointList[i + 2]) || (x < pointList[i] && x > pointList[i + 2])) &&
-      ((y > pointList[i + 1] && y < pointList[i + 3]) || (y < pointList[i + 1] && y > pointList[i + 3]))
-    ) {
-      break
-    }
-  }
-  pointList.splice(i + 2, 0, x, y)
-  curveControlList.value.splice(i / 2 + 1, 0, {
-    x: x,
-    y: y,
-    fill: '#ff4655',
+  const line = stage.findOne('.skillCurve')
+  const point1 = controlAnchorList.value[rightTargetIndex - 1]
+  const point2 = controlAnchorList.value[rightTargetIndex]
+  const newPoint = { x: (point2.x + point1.x) / 2, y: (point2.y + point1.y) / 2 }
+  controlAnchorList.value.splice(rightTargetIndex, 0, {
+    x: newPoint.x,
+    y: newPoint.y,
+    fill: '#fff',
+    stroke: '#000',
+    strokeWidth: 2,
     radius: 6,
-    name: Date.now().toString(),
+    name: crypto.randomUUID(),
     draggable: true,
   })
+  pointList.splice(rightTargetIndex * 2, 0, newPoint.x, newPoint.y)
+  line.points(pointList)
 }
-const curveControlMenu = (name, e) => {
-  editMenuVisible.value = true
-  deleteVisible.value = true
-  insertVisible.value = false
-  menuPosition.value = { x: e.evt.clientX + 4, y: e.evt.clientY + 4 }
-  tempIndex = curveControlList.value.findIndex((e) => e.name == name)
-}
-const deleteControl = () => {
+const deleteControlAnchor = () => {
   editMenuVisible.value = false
-  curveControlList.value.splice(tempIndex, 1)
-  pointList.splice(tempIndex * 2, 2)
+  controlAnchorList.value.splice(rightTargetIndex, 1)
+  pointList.splice(rightTargetIndex * 2, 2)
+  const stage = stageRef.value.getNode()
+  const line = stage.findOne('.skillCurve')
+  line.points(pointList)
 }
 //#endregion
 
@@ -681,7 +711,7 @@ const polygonClick = (e) => {
   const polygon = stage.findOne('.skillPolygon')
   pointList.push(group.getRelativePointerPosition().x, group.getRelativePointerPosition().y)
   polygon.points(pointList)
-  curveControlList.value.push({
+  controlAnchorList.value.push({
     x: group.getRelativePointerPosition().x,
     y: group.getRelativePointerPosition().y,
     fill: '#fff',
@@ -701,84 +731,15 @@ const polygonMove = () => {
 //#endregion
 
 //#region 直线技能
-const lineWidth = 140,
-  lineLength = 280
-const lineConfig = ref({
-  x: 100,
-  y: 200,
-  points: [0, 0, lineLength, 0],
-  stroke: 'rgba(255,0,0,0.7)',
-  strokeWidth: lineWidth,
-  draggable: true,
-  name: 'skillLine',
+const lineRectCfg = ref({
+  width: 280,
+  height: 140,
+  fill: 'rgba(21, 37, 52,0.7)',
+  offsetY: 70,
 })
-const lineStartControl = ref({
-  x: 100,
-  y: 200,
-  fill: '#fff',
-  stroke: '#000',
-  strokeWidth: 2,
-  width: 10,
-  height: 10,
-  offsetX: 5,
-  offsetY: 5,
-  rotation: 45,
-  name: 'lineStartControl',
+const groupLineRotateControl = ref({
+  x: 280 + 20,
 })
-const lineEndControl = ref({
-  x: 100 + lineLength,
-  y: 200,
-  fill: '#fff',
-  stroke: '#000',
-  strokeWidth: 2,
-  radius: 6,
-  name: 'lineEndControl',
-})
-let cos = 1,
-  sin = 0
-const lineMove = (e) => {
-  const stage = stageRef.value.getNode()
-  const line = stage.findOne('.skillLine')
-  const startControl = stage.findOne('.lineStartControl')
-  const endControl = stage.findOne('.lineEndControl')
-  // line的拖动只改变x，y，不改变points
-  startControl.position({ x: line.position().x, y: line.position().y })
-  endControl.position({ x: lineLength * cos + line.position().x, y: lineLength * sin + line.position().y })
-}
-const lecMoveStart = (event) => {
-  const e = event.evt
-  const el = e.currentTarget
-  el.addEventListener('mousemove', lecMove)
-  el.addEventListener('mouseup', lecMoveEnd)
-
-  function lecMove() {
-    const stage = stageRef.value.getNode()
-    const group = stage.findOne('.mapGroup')
-    const line = stage.findOne('.skillLine')
-    const startControl = stage.findOne('.lineStartControl')
-    const endControl = stage.findOne('.lineEndControl')
-    const startPosition = { x: startControl.position().x, y: startControl.position().y }
-    // NOTE 要根据最近的有定位的父级元素获取相对定位才是准的。group如果不定义x,y，则没有定位，故会越过这一层。
-    const relativePosition = { x: group.getRelativePointerPosition().x, y: group.getRelativePointerPosition().y }
-    const c = Math.sqrt((relativePosition.x - startPosition.x) ** 2 + (relativePosition.y - startPosition.y) ** 2)
-    const a = relativePosition.x - startPosition.x
-    const b = relativePosition.y - startPosition.y
-    cos = a / c
-    sin = b / c
-    let angle = (Math.acos(cos) * 180) / Math.PI
-    if (relativePosition.y < startPosition.y) {
-      angle = -angle
-    }
-    line.rotation(angle)
-    const endPosition = { x: lineLength * cos + line.position().x, y: lineLength * sin + line.position().y }
-    endControl.position(endPosition)
-  }
-
-  function lecMoveEnd() {
-    el.removeEventListener('mousemove', lecMove)
-    el.removeEventListener('mouseup', lecMoveEnd)
-  }
-}
 //#endregion
 
 //#region 控制技能
@@ -790,7 +751,7 @@ const groupControlIconConfig = ref({
 })
 const controlStrokeConfig = ref({
   radius: 20,
-  fill: '#000',
+  fill: 'rgba(0,0,0,0.8)',
   stroke: '#23ffd0',
   strokeWidth: 2,
   name: 'skillControlStroke',
@@ -811,11 +772,11 @@ const controlLineConfig = ref({
   name: 'skillControlLine',
 })
 const controlClick = (e) => {
-  if (skillType.value != 'control' || e.evt.button == 2) return
-  if (curveControlList.value.length == 0) {
+  if ((skillType.value != 'control' && skillType.value != 'controlStraight') || e.evt.button == 2) return
+  if (controlAnchorList.value.length == 0) {
     // 如果是第一次点击，则将技能图片的位置加入数组
     const groupControlIcon = stageRef.value.getNode().findOne('.groupControlIcon')
-    curveControlList.value = [
+    controlAnchorList.value = [
       {
         ...groupControlIcon.position(),
         fill: '#fff',
@@ -830,10 +791,15 @@ const controlClick = (e) => {
   }
   const stage = stageRef.value.getNode()
   const group = stage.findOne('.mapGroup')
-  const curve = stage.findOne('.skillControlLine')
+  let line = null
+  if (skillType.value == 'control') {
+    line = stage.findOne('.skillControlLine')
+  } else if (skillType.value == 'controlStraight') {
+    line = stage.findOne('.skillControlStraightLine')
+  }
   pointList.push(group.getRelativePointerPosition().x, group.getRelativePointerPosition().y)
-  curve.points(pointList)
-  curveControlList.value.push({
+  line.points(pointList)
+  controlAnchorList.value.push({
     x: group.getRelativePointerPosition().x,
     y: group.getRelativePointerPosition().y,
     fill: '#fff',
@@ -850,8 +816,8 @@ const controlIconDrag = () => {
   const line = stage.findOne('.skillControlLine')
   pointList.splice(0, 2, groupIcon.position().x, groupIcon.position().y)
   line.points(pointList)
-  curveControlList.value[0].x = groupIcon.position().x
-  curveControlList.value[0].y = groupIcon.position().y
+  controlAnchorList.value[0].x = groupIcon.position().x
+  controlAnchorList.value[0].y = groupIcon.position().y
 }
 let anima
 const controlAnimaBuild = () => {
@@ -875,10 +841,20 @@ const controlAnimaEnd = () => {
 }
 //#endregion
 
+//#region 控制直线技能
+const controlStraightLineConfig = ref({
+  stroke: '#6c7dff',
+  strokeWidth: 4,
+  lineCap: 'round',
+  name: 'skillControlStraightLine',
+})
+//#endregion
+
 //#region 圆形技能
 const circleStrokeConfig = ref({
   radius: 28,
   stroke: '#fff',
+  // NOTE strokeWidth是内外都扩展，内部2px，外部2px
   strokeWidth: 4,
   shadowColor: '#e18ae5',
   shadowBlur: 4,
@@ -890,10 +866,11 @@ const circleShadeConfig = ref({
 })
 const [clove] = useImage('agent/clove/clove_3_detail.png')
 const circleImgConfig = ref({
-  width: 66.5,
-  height: 66.5,
-  offset: { x: 33.25, y: 33.25 },
-  cornerRadius: 33.25,
+  // 半径加2
+  width: (28 + 2) * 2,
+  height: (28 + 2) * 2,
+  offset: { x: 28 + 2, y: 28 + 2 },
+  cornerRadius: 28 + 2,
   image: clove,
   opacity: 0.9,
 })
@@ -904,7 +881,8 @@ const circleCenterConfig = ref({
 //#endregion
 
 //#region 放置技能
-const placeType = ref('cross')
+// TODO 设置一个公共的圆形或方形技能图片
+const placeType = ref('rect')
 const placeIconCircleCfg = ref({
   radius: 15,
   stroke: '#fff',
@@ -931,33 +909,6 @@ const placeRectCfg = ref({
 const groupPlaceRectRotateControl = ref({
   x: 63 + 20,
 })
-const placeControlRotate = (event) => {
-  const e = event.evt.currentTarget
-  e.addEventListener('mousemove', rectMoveStart)
-  e.addEventListener('mouseup', rectMoveEnd)
-  function rectMoveStart(e) {
-    // 这个e是正常evernt，相当于上面的event.evt
-    // NOTE 阻止冒泡，防止触发父组件的drag事件
-    e.stopPropagation()
-    const stage = stageRef.value.getNode()
-    const mapGroup = stage.findOne('.mapGroup')
-    const placeGroup = stage.findOne('.groupPlace')
-    const pointerPosition = mapGroup.getRelativePointerPosition()
-    const centerPosition = placeGroup.position()
-    const a = pointerPosition.x - centerPosition.x
-    const c = Math.sqrt((pointerPosition.x - centerPosition.x) ** 2 + (pointerPosition.y - centerPosition.y) ** 2)
-    let cos = a / c
-    let angle = (Math.acos(cos) / Math.PI) * 180
-    if (pointerPosition.y < centerPosition.y) {
-      angle = -angle
-    }
-    placeGroup.rotation(angle)
-  }
-  function rectMoveEnd() {
-    e.removeEventListener('mousemove', rectMoveStart)
-    e.removeEventListener('mouseup', rectMoveEnd)
-  }
-}
 // 圆形
 const placeCircleCfg = ref({
   radius: 126,
@@ -1080,6 +1031,8 @@ const placeCrossLine2 = ref({
   strokeWidth: 4,
   name: 'placeStraightLine2',
 })
+let crossOccupy = [false, false, false, false]
+let crossSumOccupy = false
 const placeControlAdjustLength = (event, index) => {
   const e = event.evt.currentTarget
   const node = event.currentTarget
@@ -1097,15 +1050,30 @@ const placeControlAdjustLength = (event, index) => {
     // 仅限45度，x=y
     const x = placeGroup.getRelativePointerPosition().x
     let d = 0
+    // 计算每条棱的长度
     if (node.position().x >= 0) {
       d = x / Math.cos(Math.PI / 4)
     } else {
       d = -x / Math.cos(Math.PI / 4)
     }
+    // 给每个点绑定是否占用
+    crossOccupy[index] = false
+    for (let i = 0; i < crossOccupy.length; i++) {
+      if (crossOccupy[i] == true) {
+        crossSumOccupy = true
+        break // forEach无法使用break
+      } else crossSumOccupy = false
+    }
     if (d < 15) {
-      // TODO 多点归零
+      crossOccupy[index] = true
       groupIcon.zIndex(0)
-    } else if (groupIcon.zIndex() == 0) {
+      for (let i = 0; i < crossOccupy.length; i++) {
+        if (crossOccupy[i] == true) {
+          crossSumOccupy = true
+          break
+        } else crossSumOccupy = false
+      }
+    } else if (groupIcon.zIndex() == 0 && crossSumOccupy == false) {
       groupIcon.zIndex(1)
     }
     if (d <= 0 || d > 70) return
@@ -1160,9 +1128,9 @@ const skillClick = (index) => {
   console.log(skillType.value)
   // line过点清空
   if (skillType.value == 'curve' || skillType.value == 'polygon' || skillType.value == 'control') {
-    curveControlList.value.splice(0, curveControlList.value.length)
+    controlAnchorList.value.splice(0, controlAnchorList.value.length)
     pointList.splice(0, pointList.length)
-    console.log(curveControlList.value)
+    console.log(controlAnchorList.value)
   }
   // 更换载入图片
   changeImg(index)
@@ -1386,7 +1354,7 @@ const submit = async (form) => {
     <div class="map-container" ref="mapContainerRef" @contextmenu.prevent>
       <v-stage ref="stageRef" :config="stageConfig">
         <v-layer>
-          <v-group :config="groupConfig" @click="(curveClick($event), polygonClick($event), controlClick($event))">
+          <v-group :config="groupConfig" @click="(addNewControlAnchor($event), polygonClick($event), controlClick($event))">
             <!-- 背景地图 -->
             <!-- TODO 背景地图应该单独一个group，方便地图的旋转与组件的旋转 -->
             <v-image :config="mapImageConfig" />
@@ -1395,8 +1363,10 @@ const submit = async (form) => {
               <!-- 连线 -->
               <v-line :config="throwLineConfig" />
               <!-- 特工图标 -->
-              <v-image :config="throwAgentIconConfig" @dragmove="dragIcon" />
-              <v-group :config="groupThrowIconConfig" @dragmove="dragIcon">
+              <v-group
+                :config="groupThrowIconConfig"
+                @dragmove="dragLineBothEnd(stageRef, '.skillThrowLine', '.skillThrowAgentIcon', '.groupThrowIcon')"
+              >
                 <!-- 技能范围 -->
                 <v-circle :config="throwSkillRangeConfig" />
                 <!-- 技能图标 -->
@@ -1404,124 +1374,65 @@ const submit = async (form) => {
                 <!-- 技能中心点 -->
                 <v-circle :config="throwSkillCenterConfig" v-else />
               </v-group>
+              <v-image
+                :config="throwAgentIconConfig"
+                @dragmove="dragLineBothEnd(stageRef, '.skillThrowLine', '.skillThrowAgentIcon', '.groupThrowIcon')"
+              />
             </v-group>
             <!-- throwGround型 -->
             <v-group :config="{ name: 'groupThrowGroud' }" v-if="skillType == 'throwGround'">
               <v-line :config="throwGroundLineCfg" />
-              <v-group :config="{ name: 'groupThrowGroudIcon', x: 500, y: 300, draggable: true }">
+              <v-group
+                :config="{ name: 'groupThrowGroudIcon', x: 500, y: 300, draggable: true }"
+                @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
+              >
+                <v-circle :config="throwGroundCircleCfg" v-if="!skillIconVisible" />
                 <v-image :config="throwGroundIconCfg" v-if="!skillIconVisible" />
                 <v-image :config="throwGroundRealCfg" v-if="skillIconVisible" />
-                <v-circle :config="throwGroundCircleCfg" v-if="!skillIconVisible" />
               </v-group>
-              <v-image :config="throwGroundAgentCfg" />
+              <v-image
+                :config="throwGroundAgentCfg"
+                @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
+              />
             </v-group>
             <!-- curve型 -->
             <v-group :config="{ name: 'groupCurve' }" v-if="skillType == 'curve'">
-              <v-line :config="curveConfig" @contextmenu="curveMenu($event)" />
+              <v-line :config="curveConfig" />
               <v-circle
                 v-if="controlAnchorVisible"
-                v-for="circle in curveControlList"
+                v-for="circle in controlAnchorList"
                 :config="circle"
-                @dragmove="curveControlDrag(circle.name)"
-                @contextmenu="curveControlMenu(circle.name, $event)"
+                @dragmove="controlAnchorDrag(circle.name)"
+                @contextmenu="rightMenu(circle.name, $event)"
               />
-              <!-- 右键菜单 -->
-              <div
-                v-if="editMenuVisible"
-                :style="{
-                  position: 'absolute',
-                  left: menuPosition.x + 'px',
-                  top: menuPosition.y + 'px',
-                  width: '60px',
-                  backgroundColor: '#1a1a1a',
-                  boxShadow: '0 0 5px grey',
-                  zIndex: 99,
-                }"
-              >
-                <button
-                  v-if="insertVisible"
-                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
-                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
-                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
-                  @click="insertControl"
-                >
-                  插入
-                </button>
-                <button
-                  v-if="deleteVisible"
-                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
-                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
-                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
-                  @click="deleteControl"
-                >
-                  删除
-                </button>
-                <button
-                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
-                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
-                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
-                  @click="editMenuVisible = false"
-                >
-                  取消
-                </button>
-              </div>
             </v-group>
             <!-- polygon型 -->
             <v-group :config="{ name: 'groupPolygon' }" v-if="skillType == 'polygon'">
-              <v-line :config="polygonConfig" @dragmove="polygonMove" @contextmenu="curveMenu($event)" />
+              <v-line :config="polygonConfig" @dragmove="polygonMove" />
               <v-circle
                 v-if="controlAnchorVisible"
-                v-for="circle in curveControlList"
+                v-for="circle in controlAnchorList"
                 :config="circle"
-                @dragmove="curveControlDrag(circle.name)"
-                @contextmenu="curveControlMenu(circle.name, $event)"
+                @dragmove="controlAnchorDrag(circle.name)"
+                @contextmenu="rightMenu(circle.name, $event)"
               />
-              <!-- 右键菜单 -->
-              <div
-                v-if="editMenuVisible"
-                :style="{
-                  position: 'absolute',
-                  left: menuPosition.x + 'px',
-                  top: menuPosition.y + 'px',
-                  width: '60px',
-                  backgroundColor: '#1a1a1a',
-                  boxShadow: '0 0 5px grey',
-                  zIndex: 99,
-                }"
-              >
-                <button
-                  v-if="insertVisible"
-                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
-                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
-                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
-                  @click="insertControl"
-                >
-                  插入
-                </button>
-                <button
-                  v-if="deleteVisible"
-                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
-                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
-                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
-                  @click="deleteControl"
-                >
-                  删除
-                </button>
-                <button
-                  :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
-                  @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
-                  @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
-                  @click="editMenuVisible = false"
-                >
-                  取消
-                </button>
-              </div>
             </v-group>
             <!-- line型 -->
-            <v-group :config="{ name: 'groupLine' }" v-if="skillType == 'line'">
-              <v-line :config="lineConfig" @dragmove="lineMove" />
-              <v-rect :config="lineStartControl" />
-              <v-circle :config="lineEndControl" @mousedown="lecMoveStart" />
+            <v-group :config="{ name: 'groupLine', x: 500, y: 500, draggable: true }" v-if="skillType == 'line'">
+              <v-rect :config="lineRectCfg" />
+              <v-group
+                :config="groupLineRotateControl"
+                @mousedown="ControlRotate($event, stageRef, '.groupLine')"
+                @mouseenter="controlHover"
+                @mouseleave="controlLeave"
+              >
+                <v-circle :config="rotateControlCircle" />
+                <v-image :config="rotateControlImg" />
+              </v-group>
+              <v-group :config="{ name: 'groupLineIcon' }">
+                <v-circle :config="placeIconCircleCfg" />
+                <v-image :config="placeImgCfg" />
+              </v-group>
             </v-group>
             <!-- control型 -->
             <v-group :config="{ name: 'groupControl' }" v-if="skillType == 'control'">
@@ -1530,7 +1441,7 @@ const submit = async (form) => {
               <el-button type="info" @click="controlAnimaEnd">停止</el-button>
               <v-line :config="controlLineConfig" @contextmenu="curveMenu($event)" />
               <v-circle
-                v-for="circle in curveControlList"
+                v-for="circle in controlAnchorList"
                 :config="circle"
                 @dragmove="curveControlDrag(circle.name)"
                 @contextmenu="curveControlMenu(circle.name, $event)"
@@ -1541,6 +1452,19 @@ const submit = async (form) => {
               </v-group>
             </v-group>
             <!-- controlStraight型-->
+            <v-group :config="{ name: 'groupControlStraight' }" v-if="skillType == 'controlStraight'">
+              <v-line :config="controlStraightLineConfig" />
+              <v-circle
+                v-for="circle in controlAnchorList"
+                :config="circle"
+                @dragmove="curveControlDrag(circle.name)"
+                @contextmenu="curveControlMenu(circle.name, $event)"
+              />
+              <v-group :config="groupControlIconConfig" @dragmove="controlIconDrag()">
+                <v-circle :config="controlStrokeConfig" />
+                <v-image :config="controlImgConfig" />
+              </v-group>
+            </v-group>
             <!-- circle型 -->
             <v-group :config="{ name: 'groupCircle', x: 300, y: 400, draggable: true }" v-if="skillType == 'circle'">
               <v-circle :config="circleStrokeConfig" v-if="!skillIconVisible" />
@@ -1552,7 +1476,12 @@ const submit = async (form) => {
             <v-group :config="{ name: 'groupPlace', x: 500, y: 500, draggable: true }" v-if="skillType == 'place'">
               <v-group :config="{ name: 'groupPlaceRect' }" v-if="placeType == 'rect'">
                 <v-rect :config="placeRectCfg" />
-                <v-group :config="groupPlaceRectRotateControl" @mousedown="placeControlRotate" @mouseenter="controlHover" @mouseleave="controlLeave">
+                <v-group
+                  :config="groupPlaceRectRotateControl"
+                  @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
+                  @mouseenter="controlHover"
+                  @mouseleave="controlLeave"
+                >
                   <v-circle :config="rotateControlCircle" />
                   <v-image :config="rotateControlImg" />
                 </v-group>
@@ -1565,7 +1494,7 @@ const submit = async (form) => {
                 <v-path :config="placeSectorPath" />
                 <v-group
                   :config="groupPlaceSectorRotateControl"
-                  @mousedown="placeControlRotate"
+                  @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
                   @mouseenter="controlHover"
                   @mouseleave="controlLeave"
                 >
@@ -1605,7 +1534,12 @@ const submit = async (form) => {
                   @mouseenter="controlHover"
                   @mouseleave="controlLeave"
                 />
-                <v-group :config="groupPlaceCrossControl" @mousedown="placeControlRotate" @mouseenter="controlHover" @mouseleave="controlLeave">
+                <v-group
+                  :config="groupPlaceCrossControl"
+                  @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
+                  @mouseenter="controlHover"
+                  @mouseleave="controlLeave"
+                >
                   <v-circle :config="rotateControlCircle" />
                   <v-image :config="rotateControlImg" />
                 </v-group>
@@ -1616,6 +1550,45 @@ const submit = async (form) => {
               </v-group>
             </v-group>
           </v-group>
+          <!-- 右键菜单 -->
+          <div
+            v-if="editMenuVisible"
+            :style="{
+              position: 'absolute',
+              left: menuPosition.x + 'px',
+              top: menuPosition.y + 'px',
+              width: '60px',
+              backgroundColor: '#1a1a1a',
+              boxShadow: '0 0 5px grey',
+              zIndex: 99,
+            }"
+          >
+            <button
+              v-if="editInsertVisible"
+              :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
+              @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
+              @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
+              @click="insertControlAnchor"
+            >
+              插入
+            </button>
+            <button
+              :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
+              @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
+              @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
+              @click="deleteControlAnchor"
+            >
+              删除
+            </button>
+            <button
+              :style="{ width: '100%', backgroundColor: '#363636', border: 'none', margin: 0, padding: '10px', cursor: 'pointer' }"
+              @mouseover="(e) => (e.target.style.backgroundColor = '#686767')"
+              @mouseout="(e) => (e.target.style.backgroundColor = '#363636')"
+              @click="editMenuVisible = false"
+            >
+              取消
+            </button>
+          </div>
         </v-layer>
       </v-stage>
     </div>
@@ -1671,7 +1644,7 @@ const submit = async (form) => {
               :before-upload="beforeUpload"
             >
               <el-icon><Plus /></el-icon>
-              <!-- NOTE 插槽作用域，解决通信问题 -->
+              <!-- NOTE 插槽作用域，解决通信问题，根据elem文档中对应插槽是否提供类型 -->
               <template #file="file">
                 <img class="el-upload-list__item-thumbnail" :src="file.file.url" />
                 <span class="el-upload-list__item-actions">

@@ -8,6 +8,11 @@
   color: #fff;
 }
 
+.small-text{
+  font-size: 14px;
+  color:#fff;
+}
+
 .large-text{
   font-size: 18px;
   color: #fff;
@@ -25,8 +30,7 @@
   align-items: center;
 }
 
-
-
+/* 修改全局样式 */
 .el-input__wrapper {
   background-color: #1a1a1a !important;
 }
@@ -41,7 +45,13 @@ html.dark{
 
 .el-image-viewer__wrapper .el-icon{
   --color:#ff4655 !important;
-  }
+}
+
+body{
+  font-family: 'Arial';
+}
+
+
 
 
 

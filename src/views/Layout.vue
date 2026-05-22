@@ -1,10 +1,15 @@
 <script setup>
-import { ref } from 'vue'
-import { Search, Upload, User, Message, Operation, SwitchButton, ArrowRight } from '@element-plus/icons-vue'
-import LineUpKonva from './components/LineUpKonva.vue'
-// 道具搜索
+import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Search, Upload, User, Message, Operation, SwitchButton, ArrowRight, Right } from '@element-plus/icons-vue'
+// onMounted(() => {
+//   const switchText = document.querySelector('switch-text')
+//   console.log(switchText)
+// })
+// 道具搜索=
 const search = ref('')
-// 头像动画控制
+
+//#region 头像动画控制
 const avatarHover = () => {
   const box = document.querySelector('.nav-avatar')
   if (!box.classList.contains('nav-avatar-anime1')) {
@@ -38,6 +43,193 @@ const popoverLeave = () => {
   }
   boxP.classList.add('popover-style-leave')
 }
+//#endregion
+
+//#region 登录对话框
+const loginDialogVisible = ref(false),
+  loginFormRef = ref(),
+  sendVerifyCodeRef = ref(null),
+  isSendVerifyCode = ref(true),
+  loginModel = ref('username')
+const loginForm = ref({
+  username: '',
+  password: '',
+  checkPassword: '',
+  email: '',
+  verifyCode: '',
+  remember: false,
+})
+watch(
+  () => loginForm.value.email,
+  (newValue) => {
+    if (newValue.email != '') {
+      isSendVerifyCode.value = false
+      // FIXME elbutton ref无法修改style
+      buttonColor = '#fff'
+    } else {
+      isSendVerifyCode.value = true
+      buttonColor = null
+    }
+  },
+)
+watch(
+  () => loginModel.value,
+  () => {
+    console.log('changge')
+    loginForm.value = {
+      username: '',
+      password: '',
+      email: '',
+      verifyCode: '',
+      remember: false,
+    }
+  },
+)
+const validateCheckPwd = (rule, value, callback) => {
+  if (value == '') {
+    callback(new Error('请确认密码'))
+  } else if (value != loginForm.value.password) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+let usernameValid = '',
+  emailValid = '' // 如果格式验证有信息，即格式验证不通过，则不进行重复验证
+// TODO 分离
+const validateUserName = (rule, value, callback) => {
+  if (value == '') {
+    usernameValid = '请输入用户名'
+    callback(new Error(usernameValid))
+  } else if (value.length > 15 || value.length < 5) {
+    usernameValid = '用户名长度在5~15位之间'
+    callback(new Error(usernameValid))
+  } else {
+    usernameValid = ''
+    callback()
+  }
+}
+const validateUserNameRepeat = (rule, value, callback) => {
+  if (usernameValid != '') callback(new Error(usernameValid))
+  else {
+    if (loginModel.value == 'register') {
+      if (true) {
+        setTimeout(() => {
+          callback(new Error('用户名已存在'))
+        }, 1000)
+      } else {
+        callback()
+      }
+    } else {
+      callback()
+    }
+  }
+}
+const validateEmail = (rule, value, callback) => {
+  const pattern = /^([a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+(\.[a-zA-Z0-9_-])+/
+  if (value == '') {
+    emailValid = '请输入邮箱'
+    callback(new Error(emailValid))
+  } else if (!pattern.test(value)) {
+    emailValid = '邮箱格式错误'
+    callback(new Error(emailValid))
+  } else {
+    emailValid = ''
+    callback()
+  }
+}
+const validateEmailRepeat = (rule, value, callback) => {
+  if (emailValid != '') {
+    callback(new Error(emailValid))
+  } else {
+    if (loginModel.value == 'register') {
+      if (true) {
+        setTimeout(() => {
+          callback(new Error('邮箱已被注册'))
+        }, 1000)
+      } else {
+        callback()
+      }
+    } else {
+      callback()
+    }
+  }
+}
+const loginFormRules = ref({
+  username: [
+    { validator: validateUserName, trigger: 'change' },
+    { validator: validateUserNameRepeat, trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'change' },
+    { min: 5, max: 15, message: '密码长度在6~15之间', trigger: 'change' },
+  ],
+  checkPassword: [{ validator: validateCheckPwd, trigger: 'change' }],
+  email: [
+    { validator: validateEmail, trigger: 'change' },
+    { validator: validateEmailRepeat, trigger: 'blur' },
+  ],
+  verifyCode: [{ required: true, message: '请输入验证码', trigger: 'change' }],
+})
+let buttonColor = null
+const loginSwitch = (e, index) => {
+  e.target.style.color = '#4abce2'
+  let sibling
+  if (index == 2) {
+    sibling = e.target.previousSibling.previousSibling
+    loginModel.value = 'email'
+  }
+  if (index == 1) {
+    sibling = e.target.nextSibling.nextSibling
+    loginModel.value = 'username'
+  }
+  sibling.style.color = '#fff'
+}
+const login = (formEl) => {
+  if (!formEl) return
+  formEl.validate((valid) => {
+    if (valid) {
+      if (loginEmailVisible.value == false) {
+        console.log('Usersubmit')
+      } else {
+        console.log('Emailsubmit')
+      }
+    } else {
+      console.log('no')
+    }
+  })
+}
+const register = (formEl) => {
+  if (!formEl) return
+  formEl.validate((valid) => {
+    if (valid) {
+      if (loginEmailVisible.value == false) {
+        console.log('Usersubmit')
+      } else {
+        console.log('Emailsubmit')
+      }
+    } else {
+      console.log('no')
+    }
+  })
+}
+const isSendingVerifyCode = ref(false)
+const sendVerifyCode = (formEl) => {
+  if (!formEl) return
+  formEl.validateField(['email'], (valid) => {
+    if (valid) {
+      console.log('submit')
+      isSendingVerifyCode.value = true
+      setTimeout(() => {
+        isSendingVerifyCode.value = false
+        ElMessage.success('发送成功')
+      }, 2000)
+    } else {
+      console.log('no')
+    }
+  })
+}
+//#endregion
 </script>
 <template>
   <el-container>
@@ -118,13 +310,166 @@ const popoverLeave = () => {
             </div>
           </div>
         </el-popover>
-        <el-button type="success">登入</el-button>
+        <el-button type="success" @click="loginDialogVisible = true">登入</el-button>
         <el-button type="danger" :icon="Upload">投稿</el-button>
       </div>
     </el-header>
     <el-main>
       <router-view></router-view>
     </el-main>
+    <!-- 登录对话框 -->
+    <el-dialog class="login-dialog" title="" v-model="loginDialogVisible" width="500" center>
+      <div
+        v-if="loginModel == 'username' || loginModel == 'email'"
+        class="default-text"
+        style="display: flex; justify-content: center; align-items: center; margin-bottom: 20px"
+      >
+        <div class="switch-text" @click="loginSwitch($event, 1)">账号登录</div>
+        <div style="color: #4c4d4f">&ensp;&ensp;|&ensp;&ensp;</div>
+        <div class="switch-text" @click="loginSwitch($event, 2)">邮箱登录</div>
+      </div>
+      <div v-else-if="loginModel == 'forgetPassword'">
+        <div class="default-text" style="display: flex; justify-content: center; align-items: center; margin-bottom: 20px">找回密码</div>
+      </div>
+      <div v-else-if="loginModel == 'register'">
+        <div class="default-text" style="display: flex; justify-content: center; align-items: center; margin-bottom: 20px">注册</div>
+      </div>
+      <el-form ref="loginFormRef" :model="loginForm" :rules="loginFormRules" status-icon>
+        <div v-if="loginModel == 'username'">
+          <el-form-item prop="username">
+            <el-input class="login-first-input" v-model="loginForm.username" placeholder="请输入用户名" size="large">
+              <template #prepend><div class="input-prefix">账号</div></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="password">
+            <el-input class="login-last-input" v-model="loginForm.password" placeholder="请输入密码" type="password" show-password size="large">
+              <template #prepend><div class="input-prefix">密码</div></template>
+              <template #suffix><div style="color: #4abce2" @click="loginModel = 'forgetPassword'">忘记密码?</div></template>
+            </el-input>
+          </el-form-item>
+        </div>
+        <div v-else-if="loginModel == 'email'">
+          <el-form-item prop="email">
+            <el-input v-model="loginForm.email" placeholder="请输入邮箱" size="large">
+              <template #prepend><div class="input-prefix">邮&ensp;&ensp;箱</div></template>
+              <template #append>
+                <el-button ref="sendVerifyCodeRef" :style="{ color: buttonColor }" @click="sendVerifyCode(loginFormRef)" :disabled="isSendVerifyCode"
+                  >发送验证码</el-button
+                >
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="verifyCode">
+            <el-input v-model="loginForm.verifyCode" placeholder="请输入验证码" size="large">
+              <template #prepend><div class="input-prefix">验证码</div></template>
+            </el-input>
+          </el-form-item>
+        </div>
+        <div v-else-if="loginModel == 'register'">
+          <el-form-item prop="username">
+            <el-input class="login-first-input" v-model="loginForm.username" placeholder="请输入用户名" size="large">
+              <template #prepend><div class="input-prefix">账&ensp;&ensp;号</div></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="password">
+            <el-input class="login-last-input" v-model="loginForm.password" placeholder="请输入密码" type="password" show-password size="large">
+              <template #prepend><div class="input-prefix">密&ensp;&ensp;码</div></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="checkPassword">
+            <el-input
+              class="login-last-input"
+              v-model="loginForm.checkPassword"
+              placeholder="请再次输入密码"
+              type="password"
+              show-password
+              size="large"
+            >
+              <template #prepend><div class="input-prefix">确认密码</div></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="email">
+            <el-input v-model="loginForm.email" placeholder="请输入邮箱" size="large">
+              <template #prepend><div class="input-prefix">邮&ensp;&ensp;箱</div></template>
+              <template #append>
+                <el-button
+                  ref="sendVerifyCodeRef"
+                  :style="{ color: buttonColor }"
+                  @click="sendVerifyCode(loginFormRef)"
+                  :disabled="isSendVerifyCode"
+                  :loading="isSendingVerifyCode"
+                  >发送验证码</el-button
+                >
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="verifyCode">
+            <el-input v-model="loginForm.verifyCode" placeholder="请输入验证码" size="large">
+              <template #prepend><div class="input-prefix">验证码</div></template>
+            </el-input>
+          </el-form-item>
+        </div>
+        <div v-else-if="loginModel == 'forgetPassword'">
+          <el-form-item prop="email">
+            <el-input v-model="loginForm.email" placeholder="请输入邮箱" size="large">
+              <template #prepend><div class="input-prefix">邮&ensp;&ensp;箱</div></template>
+              <template #append>
+                <el-button
+                  ref="sendVerifyCodeRef"
+                  :style="{ color: buttonColor }"
+                  @click="sendVerifyCode(loginFormRef)"
+                  :disabled="isSendVerifyCode"
+                  d
+                  >发送验证码</el-button
+                >
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="verifyCode">
+            <el-input v-model="loginForm.verifyCode" placeholder="请输入验证码" size="large">
+              <template #prepend><div class="input-prefix">验证码</div></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="password">
+            <el-input class="login-last-input" v-model="loginForm.password" placeholder="请输入密码" type="password" show-password size="large">
+              <template #prepend><div class="input-prefix">密&ensp;&ensp;码</div></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="checkPassword">
+            <el-input
+              class="login-last-input"
+              v-model="loginForm.checkPassword"
+              placeholder="请再次输入密码"
+              type="password"
+              show-password
+              size="large"
+            >
+              <template #prepend><div class="input-prefix">确认密码</div></template>
+            </el-input>
+          </el-form-item>
+        </div>
+      </el-form>
+      <template #footer>
+        <div class="flex-center" style="justify-content: space-between">
+          <el-checkbox v-model="loginForm.remember" label="记住我"></el-checkbox>
+          <div v-if="loginModel != 'register'" class="flex-center" style="cursor: pointer" @click="loginModel = 'register'">
+            <p class="small-text" style="font-weight: bold">注册</p>
+            <el-icon size="14"><Right /></el-icon>
+          </div>
+          <div v-else class="flex-center" style="cursor: pointer" @click="loginModel = 'username'">
+            <p class="small-text" style="font-weight: bold">登录</p>
+            <el-icon size="14"><Right /></el-icon>
+          </div>
+        </div>
+        <div class="flex-center" style="justify-content: center">
+          <el-button v-if="loginModel != 'register' || loginModel != 'username'" type="success" size="large" @click="login(loginFormRef)"
+            >登录</el-button
+          >
+          <el-button v-else-if="loginModel = 'register'" type="success" size="large" @click="register(loginFormRef)">注册</el-button>
+          <el-button v-else-if="loginModel = 'forgetPassword'" type="success" size="large" @click="register(loginFormRef)">确认</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 <style lang="scss" scoped>
@@ -179,9 +524,40 @@ const popoverLeave = () => {
       height: 100%;
     }
   }
+
+  .login-dialog {
+    background-color: red;
+
+    .input-prefix {
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .el-button {
+      width: 48%;
+    }
+
+    .switch-text {
+      cursor: pointer;
+    }
+
+    .switch-text:first-child {
+      color: #4abce2;
+    }
+  }
 }
 </style>
 <style lang="scss">
+.login-dialog {
+  // background-image: url('../../public/image/background/login.png') !important;
+  // background-repeat: no-repeat !important;
+  // background-size: cover !important;
+  background-color: rgba(20, 20, 20, 0.9) !important;
+
+  .el-dialog__footer {
+    padding-top: 0;
+  }
+}
 /* 全局样式，子组件也能用，注意类名的唯一性 */
 /* 弹出框动画位置控制  */
 .avatar-popover-style {

@@ -22,6 +22,8 @@ export const rotateControlCircle = ref({
   strokeWidth: 1,
 })
 
+// 技能图标
+
 // 控制点的hover样式
 let click = false
 let hover = false
@@ -30,6 +32,7 @@ function mousedown() {
   click = true
 }
 function mouseup(circle, e) {
+  console.log(1)
   click = false
   if (hover) return // 鼠标松开后仍在点内，保持选中颜色
   circle.to({ duration: 0.1, fill: 'rgba(255,255,255,0.8)' })
@@ -62,4 +65,42 @@ export const controlLeave = (event) => {
   e.removeEventListener('mousedown', mousedown)
   e.removeEventListener('mouseup', mouseup)
   controlHoverSingle = 0
+}
+
+// 控制旋转
+export const ControlRotate = (event, stageRef, groupName) => {
+  const e = event.evt.currentTarget
+  e.addEventListener('mousemove', rectMoveStart)
+  e.addEventListener('mouseup', rectMoveEnd)
+  function rectMoveStart(e) {
+    // 这个e是正常evernt，相当于上面的event.evt
+    // NOTE 阻止冒泡，防止触发父组件的drag事件
+    e.stopPropagation()
+    const stage = stageRef.getNode()
+    const mapGroup = stage.findOne('.mapGroup')
+    const placeGroup = stage.findOne(groupName)
+    const pointerPosition = mapGroup.getRelativePointerPosition()
+    const centerPosition = placeGroup.position()
+    const a = pointerPosition.x - centerPosition.x
+    const c = Math.sqrt((pointerPosition.x - centerPosition.x) ** 2 + (pointerPosition.y - centerPosition.y) ** 2)
+    let cos = a / c
+    let angle = (Math.acos(cos) / Math.PI) * 180
+    if (pointerPosition.y < centerPosition.y) {
+      angle = -angle
+    }
+    placeGroup.rotation(angle)
+  }
+  function rectMoveEnd() {
+    e.removeEventListener('mousemove', rectMoveStart)
+    e.removeEventListener('mouseup', rectMoveEnd)
+  }
+}
+
+// 拖拽线的两端
+export const dragLineBothEnd = (stageRef, line_, end1, end2) => {
+  const stage = stageRef.getNode()
+  const line = stage.findOne(line_)
+  const groupIcon = stage.findOne(end1)
+  const agent = stage.findOne(end2)
+  line.points([groupIcon.position().x, groupIcon.position().y, agent.position().x, agent.position().y])
 }

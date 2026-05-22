@@ -102,6 +102,41 @@ const getImageUrl = (url) => {
   return new URL(url, import.meta.url).href
 }
 const [map] = useImage(getImageUrl('../../assets/map/detail/breeze.png'))
+
+const lecMoveStart = (event) => {
+  const e = event.evt
+  const el = e.currentTarget
+  el.addEventListener('mousemove', lecMove)
+  el.addEventListener('mouseup', lecMoveEnd)
+
+  function lecMove() {
+    const stage = stageRef.value.getNode()
+    const group = stage.findOne('.mapGroup')
+    const line = stage.findOne('.skillLine')
+    const startControl = stage.findOne('.lineStartControl')
+    const endControl = stage.findOne('.lineEndControl')
+    const startPosition = { x: startControl.position().x, y: startControl.position().y }
+    // NOTE 要根据最近的有定位的父级元素获取相对定位才是准的。group如果不定义x,y，则没有定位，故会越过这一层。
+    const relativePosition = { x: group.getRelativePointerPosition().x, y: group.getRelativePointerPosition().y }
+    const c = Math.sqrt((relativePosition.x - startPosition.x) ** 2 + (relativePosition.y - startPosition.y) ** 2)
+    const a = relativePosition.x - startPosition.x
+    const b = relativePosition.y - startPosition.y
+    cos = a / c
+    sin = b / c
+    let angle = (Math.acos(cos) * 180) / Math.PI
+    if (relativePosition.y < startPosition.y) {
+      angle = -angle
+    }
+    line.rotation(angle)
+    const endPosition = { x: lineLength * cos + line.position().x, y: lineLength * sin + line.position().y }
+    endControl.position(endPosition)
+  }
+
+  function lecMoveEnd() {
+    el.removeEventListener('mousemove', lecMove)
+    el.removeEventListener('mouseup', lecMoveEnd)
+  }
+}
 </script>
 
 <template>
