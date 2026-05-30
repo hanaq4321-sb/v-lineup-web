@@ -247,13 +247,14 @@ onMounted(() => {
   groupConfig.value.height = mapContainerRef.value.clientHeight
   const container = document.getElementById('map-container1')
   const observer = new ResizeObserver(() => {
+    console.log(mapContainerRef.value.clientWidth)
     // 画布正常跟随屏幕大小变化
     stageConfig.value.width = mapContainerRef.value.clientWidth
     stageConfig.value.height = mapContainerRef.value.clientHeight
     // 地图宽高1：1缩放，这样可以使地图组件内的点线也跟着一起缩放
     let scaleY = mapContainerRef.value.clientHeight / groupConfig.value.height
     const group = stageRef.value.getNode().findOne('Group')
-    console.log(scaleY)
+    // console.log(scaleY)
     group.scale({ x: scaleY, y: scaleY })
     group.offset({ x: group.width() / 2, y: group.height() / 2 })
     // FIXME 窗口变化就重置，检查其他网站逻辑

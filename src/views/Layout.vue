@@ -251,6 +251,7 @@ const sendVerifyCode = (formEl) => {
           <el-menu-item index="1">首页</el-menu-item>
           <el-menu-item index="/lineup">LineUp</el-menu-item>
           <el-menu-item index="/editor">社区</el-menu-item>
+          <el-menu-item index="/penetrate">穿点</el-menu-item>
           <el-menu-item index="4">收藏</el-menu-item>
         </el-menu>
         <el-input v-model="search" placeholder="搜索道具" :prefix-icon="Search"></el-input>
@@ -490,19 +491,18 @@ const sendVerifyCode = (formEl) => {
 
     .navigation {
       display: flex;
+
       align-items: center;
 
       .el-menu {
-        width: 300px;
+        // width: 300px;
         border-bottom: none;
       }
 
       .el-input {
-        width: 300pxpx;
+        width: 200px;
         height: 30px;
         margin-left: 20px;
-        /* border: 1px solid #363636;
-        border-radius: 5px; */
         --el-input-focus-border-color: #ff4655;
         --el-input-bg-color: #1a1a1a;
         --el-input-border-color: #363636;

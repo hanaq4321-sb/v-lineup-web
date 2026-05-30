@@ -6,7 +6,7 @@ export const controlConfig = {
   fill: 'rgba(255,255,255,0.8)',
   stroke: '#000',
   strokeWidth: 1,
-} // 拖动control
+} // 拖动控制点的公共样式部分，扩展运算符引入
 const [yaoTouIcon] = useImage('image/icon/rotate.png')
 export const rotateControlImg = ref({
   width: 26,
@@ -14,7 +14,7 @@ export const rotateControlImg = ref({
   offset: { x: 13, y: 13 },
   scale: { x: 0.8, y: 0.8 },
   image: yaoTouIcon,
-}) // 旋转control
+}) // 旋转控制点
 export const rotateControlCircle = ref({
   radius: 13,
   fill: 'rgba(255,255,255,0.8)',
@@ -73,7 +73,7 @@ export const ControlRotate = (event, stageRef, groupName) => {
   e.addEventListener('mousemove', rectMoveStart)
   e.addEventListener('mouseup', rectMoveEnd)
   function rectMoveStart(e) {
-    // 这个e是正常evernt，相当于上面的event.evt
+    // 这个e是正常event，相当于上面的event.evt
     // NOTE 阻止冒泡，防止触发父组件的drag事件
     e.stopPropagation()
     const stage = stageRef.getNode()
@@ -103,4 +103,8 @@ export const dragLineBothEnd = (stageRef, line_, end1, end2) => {
   const groupIcon = stage.findOne(end1)
   const agent = stage.findOne(end2)
   line.points([groupIcon.position().x, groupIcon.position().y, agent.position().x, agent.position().y])
+}
+
+const getImageUrl = (url) => {
+  return new URL(url, import.meta.url).href
 }
