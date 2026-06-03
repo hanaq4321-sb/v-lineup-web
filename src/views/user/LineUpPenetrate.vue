@@ -23,7 +23,6 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import Konva from 'konva'
-import { ltp } from '../../utils/lineToPath'
 import {
   controlConfig,
   rotateControlCircle,
@@ -36,7 +35,7 @@ import {
 import { mapDraggable, controlMapDraggable, handleWheel, mapZoomButton, mapRotate, resetMap } from '@/styles/js/map-adjust'
 import RotateRight from '~icons/ix/rotate-90-right'
 import RotateLeft from '~icons/ix/rotate-90-left'
-import settingBar from './settingBar.vue'
+import settingBar from './user/public/settingBar.vue'
 import { useAgentSelectStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
 //#region 地图、特工、技能信息
@@ -527,7 +526,8 @@ const throwLineConfig = ref({
 //#region 地图和技能选择
 // 地图选择
 // NOTE 直接在src中写可以使用上下级相对路径，但传入属性时只能从src传入
-const selectWrapperImg = computed(() => `url(map/cover/${mapValue.value}.png)`)
+// const selectWrapperImg = computed(() => `url(map/cover/${mapValue.value}.png)`)
+const selectWrapperImg = computed(() => `url(map/cover/breeze.png)`)
 let [map1] = useImage(computed(() => `map/detail/${mapValue.value}.png`))
 watch(
   map1,

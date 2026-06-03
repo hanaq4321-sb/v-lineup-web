@@ -2,6 +2,8 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Upload, User, Message, Operation, SwitchButton, ArrowRight, Right } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+const router = useRouter()
 // onMounted(() => {
 //   const switchText = document.querySelector('switch-text')
 //   console.log(switchText)
@@ -162,7 +164,7 @@ const loginFormRules = ref({
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'change' },
-    { min: 5, max: 15, message: '密码长度在6~15之间', trigger: 'change' },
+    { min: 6, max: 15, message: '密码长度在6~15之间', trigger: 'change' },
   ],
   checkPassword: [{ validator: validateCheckPwd, trigger: 'change' }],
   email: [
@@ -230,6 +232,20 @@ const sendVerifyCode = (formEl) => {
   })
 }
 //#endregion
+
+//#region 上传选择对话框
+const uploadDialogVisible = ref(false)
+const uploadSelect = (type) => {
+  if (type == 'skill') router.push('/editor')
+  else if (type == 'penetrate') router.push('/penetrate')
+  else if (type == 'point') {
+    // TODO admin判断
+    router.push('/pointsEdit')
+  }
+  uploadDialogVisible.value = false
+}
+
+//#endregion
 </script>
 <template>
   <el-container>
@@ -252,7 +268,7 @@ const sendVerifyCode = (formEl) => {
           <el-menu-item index="/lineup">LineUp</el-menu-item>
           <el-menu-item index="/editor">社区</el-menu-item>
           <el-menu-item index="/penetrate">穿点</el-menu-item>
-          <el-menu-item index="4">收藏</el-menu-item>
+          <el-menu-item index="/pointsEdit">地图</el-menu-item>
         </el-menu>
         <el-input v-model="search" placeholder="搜索道具" :prefix-icon="Search"></el-input>
       </div>
@@ -312,7 +328,7 @@ const sendVerifyCode = (formEl) => {
           </div>
         </el-popover>
         <el-button type="success" @click="loginDialogVisible = true">登入</el-button>
-        <el-button type="danger" :icon="Upload">投稿</el-button>
+        <el-button type="danger" @click="uploadDialogVisible = true" :icon="Upload">投稿</el-button>
       </div>
     </el-header>
     <el-main>
@@ -471,6 +487,28 @@ const sendVerifyCode = (formEl) => {
         </div>
       </template>
     </el-dialog>
+    <!-- 上传选择对话框 -->
+    <el-dialog v-model="uploadDialogVisible" width="700">
+      <el-row :gutter="15">
+        <el-col :span="8">
+          <div class="upload-select" @click="uploadSelect('skill')">
+            <div class="title-text">道具</div>
+            <img src="../../public/agent/sova/sova_3.webp" />
+          </div>
+        </el-col>
+        <el-col :span="8">
+          <div class="upload-select" @click="uploadSelect('penetrate')">
+            <div class="title-text">穿点</div>
+            <img src="../../public/image/icon/ak.png" style="width: 30%; margin-top: 37px" />
+          </div>
+        </el-col>
+        <el-col :span="8">
+          <div class="upload-select" @click="uploadSelect('point')">
+            <div class="title-text">地图编辑</div>
+            <img src="../../public/image/icon/mapEdit.png" /></div
+        ></el-col>
+      </el-row>
+    </el-dialog>
   </el-container>
 </template>
 <style lang="scss" scoped>
@@ -544,6 +582,31 @@ const sendVerifyCode = (formEl) => {
     .switch-text:first-child {
       color: #4abce2;
     }
+  }
+
+  .upload-select {
+    width: inherit;
+    height: 200px;
+    // padding-bottom: 100%;
+    background-color: #363636;
+    // border: 1px solid red;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    div {
+      margin-top: 30px;
+    }
+
+    img {
+      margin-top: 20px;
+      width: 25%;
+    }
+  }
+
+  .upload-select:hover {
+    background-color: #727272;
   }
 }
 </style>
