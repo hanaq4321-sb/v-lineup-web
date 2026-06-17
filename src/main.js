@@ -5,6 +5,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import locale from 'element-plus/dist/locale/zh-cn'
 import VueKonva from 'vue-konva' // 全局注册
 import router from './router/index'
 import 'element-plus/theme-chalk/index.css'
@@ -15,7 +16,7 @@ const app = createApp(App)
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 
-app.use(ElementPlus)
+app.use(ElementPlus, { locale })
 app.use(VueKonva)
 app.use(router)
 app.use(pinia)

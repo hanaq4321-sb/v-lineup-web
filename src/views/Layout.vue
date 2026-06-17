@@ -1,14 +1,28 @@
 <script setup>
+import { userRegisterServie, getUserInfoService, getUserCountByEmailService, loginService } from '@/api/user'
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Upload, User, Message, Operation, SwitchButton, ArrowRight, Right } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
+import { useLoginDialogStore } from '@/store/user'
+import { storeToRefs } from 'pinia'
+import MapPointsEdit from './user/mapPointsEdit.vue'
 const router = useRouter()
-// onMounted(() => {
-//   const switchText = document.querySelector('switch-text')
-//   console.log(switchText)
-// })
-// 道具搜索=
+
+//#region 响应处理
+const registerRequest = async (username, password, email) => {
+  let result = await userRegisterServie(username, password, email)
+  if (result.code == 0) {
+    ElMessage.success('注册成功，请登录')
+    loginModel.value = 'username'
+  } else {
+    console.log(result.msg)
+    ElMessage.error('注册失败')
+  }
+}
+//#endregion
+
+// 搜索
 const search = ref('')
 
 //#region 头像动画控制
@@ -48,17 +62,18 @@ const popoverLeave = () => {
 //#endregion
 
 //#region 登录对话框
-const loginDialogVisible = ref(false),
-  loginFormRef = ref(),
+const loginDialogStore = useLoginDialogStore()
+const { loginDialogVisible } = storeToRefs(loginDialogStore)
+const loginFormRef = ref(),
   sendVerifyCodeRef = ref(null),
   isSendVerifyCode = ref(true),
   loginModel = ref('username')
 const loginForm = ref({
-  username: '',
-  password: '',
-  checkPassword: '',
-  email: '',
-  verifyCode: '',
+  username: null,
+  password: null,
+  checkPassword: null,
+  email: null,
+  verifyCode: null,
   remember: false,
 })
 watch(
@@ -98,10 +113,9 @@ const validateCheckPwd = (rule, value, callback) => {
 }
 let usernameValid = '',
   emailValid = '' // 如果格式验证有信息，即格式验证不通过，则不进行重复验证
-// TODO 分离
 const validateUserName = (rule, value, callback) => {
   if (value == '') {
-    usernameValid = '请输入用户名'
+    usernameValid = '用户名不能为空'
     callback(new Error(usernameValid))
   } else if (value.length > 15 || value.length < 5) {
     usernameValid = '用户名长度在5~15位之间'
@@ -111,16 +125,17 @@ const validateUserName = (rule, value, callback) => {
     callback()
   }
 }
-const validateUserNameRepeat = (rule, value, callback) => {
+const validateUserNameRepeat = async (rule, value, callback) => {
   if (usernameValid != '') callback(new Error(usernameValid))
   else {
     if (loginModel.value == 'register') {
-      if (true) {
-        setTimeout(() => {
-          callback(new Error('用户名已存在'))
-        }, 1000)
+      const result = await getUserInfoService(loginForm.value.username)
+      if (result.code == 0) {
+        if (result.data == null) callback()
+        else callback(new Error('用户名已存在'))
       } else {
-        callback()
+        console.log(result.msg)
+        callback(new Error('服务异常'))
       }
     } else {
       callback()
@@ -140,17 +155,17 @@ const validateEmail = (rule, value, callback) => {
     callback()
   }
 }
-const validateEmailRepeat = (rule, value, callback) => {
-  if (emailValid != '') {
-    callback(new Error(emailValid))
-  } else {
+const validateEmailRepeat = async (rule, value, callback) => {
+  if (emailValid != '') callback(new Error(emailValid))
+  else {
     if (loginModel.value == 'register') {
-      if (true) {
-        setTimeout(() => {
-          callback(new Error('邮箱已被注册'))
-        }, 1000)
+      const result = await getUserCountByEmailService(loginForm.value.email)
+      if (result.code == 0) {
+        if (result.data == 0) callback()
+        else callback(new Error('邮箱已存在'))
       } else {
-        callback()
+        console.log(result.msg)
+        callback(new Error('服务异常'))
       }
     } else {
       callback()
@@ -159,11 +174,12 @@ const validateEmailRepeat = (rule, value, callback) => {
 }
 const loginFormRules = ref({
   username: [
+    { required: true, message: '用户名不能为空', trigger: 'blur' },
     { validator: validateUserName, trigger: 'change' },
     { validator: validateUserNameRepeat, trigger: 'blur' },
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'change' },
+    { required: true, message: '密码不能为空', trigger: ['blur', 'change'] },
     { min: 6, max: 15, message: '密码长度在6~15之间', trigger: 'change' },
   ],
   checkPassword: [{ validator: validateCheckPwd, trigger: 'change' }],
@@ -187,17 +203,18 @@ const loginSwitch = (e, index) => {
   }
   sibling.style.color = '#fff'
 }
+// 按钮组
 const login = (formEl) => {
   if (!formEl) return
-  formEl.validate((valid) => {
+  formEl.validate(async (valid) => {
     if (valid) {
-      if (loginEmailVisible.value == false) {
-        console.log('Usersubmit')
+      const result = await loginService(loginForm.value.username, loginForm.value.password)
+      if (result.code == 0) {
+        ElMessage.success('登陆成功')
+        loginDialogVisible.value = false
       } else {
-        console.log('Emailsubmit')
+        ElMessage.error(result.msg)
       }
-    } else {
-      console.log('no')
     }
   })
 }
@@ -205,13 +222,7 @@ const register = (formEl) => {
   if (!formEl) return
   formEl.validate((valid) => {
     if (valid) {
-      if (loginEmailVisible.value == false) {
-        console.log('Usersubmit')
-      } else {
-        console.log('Emailsubmit')
-      }
-    } else {
-      console.log('no')
+      registerRequest(loginForm.value.username, loginForm.value.password, loginForm.value.email)
     }
   })
 }
@@ -244,7 +255,6 @@ const uploadSelect = (type) => {
   }
   uploadDialogVisible.value = false
 }
-
 //#endregion
 </script>
 <template>
@@ -332,7 +342,11 @@ const uploadSelect = (type) => {
       </div>
     </el-header>
     <el-main>
-      <router-view></router-view>
+      <router-view v-slot="{ Component }">
+        <keep-alive include="mapPointsEdit">
+          <component :is="Component" :key="$route.fullPath" />
+        </keep-alive>
+      </router-view>
     </el-main>
     <!-- 登录对话框 -->
     <el-dialog class="login-dialog" title="" v-model="loginDialogVisible" width="500" center>
@@ -479,11 +493,11 @@ const uploadSelect = (type) => {
           </div>
         </div>
         <div class="flex-center" style="justify-content: center">
-          <el-button v-if="loginModel != 'register' || loginModel != 'username'" type="success" size="large" @click="login(loginFormRef)"
+          <el-button v-if="loginModel == 'email' || loginModel == 'username'" type="success" size="large" @click="login(loginFormRef)"
             >登录</el-button
           >
-          <el-button v-else-if="loginModel = 'register'" type="success" size="large" @click="register(loginFormRef)">注册</el-button>
-          <el-button v-else-if="loginModel = 'forgetPassword'" type="success" size="large" @click="register(loginFormRef)">确认</el-button>
+          <el-button v-else-if="loginModel == 'register'" type="success" size="large" @click="register(loginFormRef)">注册</el-button>
+          <el-button v-else-if="loginModel == 'forgetPassword'" type="success" size="large" @click="register(loginFormRef)">确认找回</el-button>
         </div>
       </template>
     </el-dialog>

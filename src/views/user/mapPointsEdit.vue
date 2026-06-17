@@ -1,40 +1,14 @@
 <script setup>
+import { insertOrUpdateMapService, getService, deleteNodeService } from '@/api/map-editor.js'
 import { ref, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
-import {
-  Star,
-  StarFilled,
-  Check,
-  Compass,
-  RefreshRight,
-  Plus,
-  Minus,
-  DArrowLeft,
-  DArrowRight,
-  Tools,
-  CloseBold,
-  UploadFilled,
-  ZoomIn,
-  Delete,
-  Edit,
-  User,
-  Hide,
-} from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { RefreshRight, Plus, Minus, CloseBold, ZoomIn, Delete, Edit } from '@element-plus/icons-vue'
+import { ElEmpty, ElMessage } from 'element-plus'
 import Konva from 'konva'
-import {
-  controlConfig,
-  rotateControlCircle,
-  dragLineBothEnd,
-  rotateControlImg,
-  ControlRotate,
-  controlHover,
-  controlLeave,
-} from '@/styles/js/skill-editor'
 import { mapDraggable, controlMapDraggable, handleWheel, mapZoomButton, mapRotate, resetMap } from '@/styles/js/map-adjust'
 import RotateRight from '~icons/ix/rotate-90-right'
 import RotateLeft from '~icons/ix/rotate-90-left'
-import settingBar from './user/public/settingBar.vue'
+import settingBar from './public/settingBar.vue'
 import { useAgentSelectStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
 //#region 地图、特工、技能信息
@@ -161,20 +135,7 @@ onBeforeUnmount(() => {
 //#endregion
 
 //#region 文本编辑
-// TODO 读取进来
-const textArray = ref([
-  {
-    x: 500,
-    y: 500,
-    fontSize: 20,
-    text: 'B区 拐角',
-    fontStyle: 'bold',
-    fill: '#fff',
-    fontFamily: 'Microsoft JhengHei',
-    draggable: true,
-    name: crypto.randomUUID(),
-  },
-])
+const textArray = ref([])
 const pointsNameInput = ref('')
 const transformerConfig = ref({
   enabledAnchors: ['middle-left', 'middle-right'],
@@ -209,37 +170,28 @@ const stageUnFocus = (e) => {
 const pointsNameInputing = () => {
   isFocus.text(pointsNameInput.value)
 }
+let addNodeTemp = []
 const addPointText = () => {
   textArray.value.push({
     x: 500,
     y: 500,
-    fontSize: 22,
-    text: '测试2222测试',
+    text: '请输入点位',
+    fontSize: 19,
+    fontStyle: 'bold',
     fill: '#fff',
+    fontFamily: 'Microsoft JhengHei',
     draggable: true,
+    id: 'point',
     name: crypto.randomUUID(),
   })
+  addNodeTemp.push(textArray.value[textArray.value.length - 1].name)
 }
 
 //#endregion
 
 //#region 终极宝珠
-
-//#region 终极宝珠
 let [skillBallImg] = useImage('image/icon/skillBall.png')
-const skillBallArray = ref([
-  {
-    x: 300,
-    y: 300,
-    width: 20,
-    height: 20,
-    offset: { x: 10, y: 10 },
-    cornerRadius: 10,
-    draggable: true,
-    image: skillBallImg,
-    name: crypto.randomUUID(),
-  },
-])
+const skillBallArray = ref([])
 const addSkillBall = () => {
   skillBallArray.value.push({
     x: 300,
@@ -250,35 +202,17 @@ const addSkillBall = () => {
     cornerRadius: 10,
     draggable: true,
     image: skillBallImg,
+    id: 'skillBall',
     name: crypto.randomUUID(),
   })
+  addNodeTemp.push(skillBallArray.value[skillBallArray.value.length - 1].name)
 }
 //#endregion
 
 //#region 开局屏障
-// TODO 参考,throw和circle的处理
-const attackBarrierArray = ref([
-  {
-    x: 600,
-    y: 600,
-    width: 70,
-    height: 13,
-    fill: 'rgba(253, 68,83,0.8)',
-    draggable: true,
-    name: crypto.randomUUID(),
-  },
-])
-const defendBarrierArray = ref([
-  {
-    x: 600,
-    y: 700,
-    width: 70,
-    height: 13,
-    fill: 'rgba(102,229,218,0.8)',
-    draggable: true,
-    name: crypto.randomUUID(),
-  },
-])
+// TODO 重置就是直接为0，不to了
+const attackBarrierArray = ref([])
+const defendBarrierArray = ref([])
 const addAttackBarrier = () => {
   attackBarrierArray.value.push({
     x: 600,
@@ -287,8 +221,10 @@ const addAttackBarrier = () => {
     height: 13,
     fill: 'rgba(253, 68,83,0.8)',
     draggable: true,
+    id: 'attackBarrier',
     name: crypto.randomUUID(),
   })
+  addNodeTemp.push(attackBarrierArray.value[attackBarrierArray.value.length - 1].name)
 }
 const addDefendBarrier = () => {
   defendBarrierArray.value.push({
@@ -298,52 +234,192 @@ const addDefendBarrier = () => {
     height: 13,
     fill: 'rgba(102,229,218,0.8)',
     draggable: true,
+    id: 'defendBarrier',
     name: crypto.randomUUID(),
   })
+  addNodeTemp.push(defendBarrierArray.value[defendBarrierArray.value.length - 1].name)
 }
 //#endregion
 
 //#endregion
 
-//#region 删除和提交
-const deleteNode = () => {
+//#region 地图切换、删除、提交
+const selectWrapperImg = computed(() => `url(map/cover/${mapValue.value}.png)`)
+let [map1] = useImage(computed(() => `map/detail/${mapValue.value}.png`))
+watch(
+  map1,
+  async (newValue) => {
+    mapImageConfig.value.image = newValue
+    // NOTE 不能连等，会导致对象相同
+    // TODO 空值处理，地图默认角度
+    attackBarrierArray.value = []
+    defendBarrierArray.value = []
+    textArray.value = []
+    skillBallArray.value = []
+    const result = await getService(selectStore.mapValue)
+    if (result.code == 0) {
+      const pointList = result.data.pointList
+      const barrierList = result.data.barrierList
+      const skillBallList = result.data.skillBallList
+      pointList.forEach((e) => {
+        textArray.value.push({
+          ...e,
+          fontSize: 19,
+          fontStyle: 'bold',
+          fill: '#fff',
+          fontFamily: 'Microsoft JhengHei',
+          draggable: true,
+          id: 'point',
+          name: e.uuid,
+        })
+      })
+      barrierList.forEach((e) => {
+        if (e.side == 1) {
+          attackBarrierArray.value.push({
+            ...e,
+            width: 70,
+            height: 13,
+            fill: 'rgba(253,68,83,0.8)',
+            draggable: true,
+            id: 'attackBarrier',
+            name: e.uuid,
+          })
+        } else {
+          defendBarrierArray.value.push({
+            ...e,
+            width: 70,
+            height: 13,
+            fill: 'rgba(102,229,218,0.8)',
+            draggable: true,
+            id: 'defendBarrier',
+            name: e.uuid,
+          })
+        }
+      })
+      skillBallList.forEach((e) => {
+        skillBallArray.value.push({
+          ...e,
+          width: 20,
+          height: 20,
+          offset: { x: 10, y: 10 },
+          cornerRadius: 10,
+          draggable: true,
+          image: skillBallImg,
+          id: 'skillBall',
+          name: e.uuid,
+        })
+      })
+    } else {
+      console.log(result.msg)
+      ElMessage.error('获取地图编辑信息失败')
+    }
+  },
+  {
+    immediate: true,
+  },
+)
+// BUG 必须要三个一起穿，传一个后端没处理
+const submit = async () => {
+  let pointJson = [],
+    barrierJson = [],
+    skillBallJson = []
+  const stage = stageRef.value.getNode()
+  const point = stage.find('#point')
+  const skillBall = stage.find('#skillBall')
+  const attackBarrier = stage.find('#attackBarrier')
+  const defendBarrier = stage.find('#defendBarrier')
+  point.forEach((e) => {
+    pointJson.push({
+      uuid: e.name(),
+      ...e.position(),
+      text: e.text(),
+      mapId: selectStore.mapValue,
+    })
+  })
+  skillBall.forEach((e) => {
+    skillBallJson.push({
+      uuid: e.name(),
+      ...e.position(),
+      mapId: selectStore.mapValue,
+    })
+  })
+  attackBarrier.forEach((e) => {
+    barrierJson.push({
+      uuid: e.name(),
+      ...e.position(),
+      angle: e.rotation(),
+      scaleX: e.scaleX(),
+      side: 1,
+      mapId: selectStore.mapValue,
+    })
+  })
+  defendBarrier.forEach((e) => {
+    barrierJson.push({
+      uuid: e.name(),
+      ...e.position(),
+      angle: e.rotation(),
+      scaleX: e.scaleX(),
+      side: 0,
+      mapId: selectStore.mapValue,
+    })
+  })
+  const result = await insertOrUpdateMapService(pointJson, barrierJson, skillBallJson)
+  if (result.code == 0) {
+    //将新节点列表置空，方便删除
+    addNodeTemp = []
+    ElMessage.success('上传成功')
+  } else {
+    console.log(result.msg)
+    ElMessage.error('上传失败')
+  }
+}
+const deleteNode = async () => {
+  if (isFocus == null) {
+    ElMessage.error('请先选中')
+    return
+  }
   const name = isFocus.name()
+  console.log('name' + name)
+  transformerRef.value.getNode().nodes([])
   let index
+  let nodeAryayIndex = addNodeTemp.indexOf(name)
+  // 不在新添加的数组中，后端删除
+  if (nodeAryayIndex == -1) {
+    console.log('old')
+    const result = await deleteNodeService(name, editType)
+    if (result.code == 0) {
+      ElMessage.success('删除成功')
+    } else {
+      console.log(result.msg)
+      ElMessage.error('删除失败')
+    }
+  } else {
+    console.log('new')
+    addNodeTemp.splice(nodeAryayIndex, 1)
+  }
   switch (editType) {
     case 'text':
-      index = textArray.value.indexOf(name)
+      index = textArray.value.findIndex((e) => e.name == name)
+      console.log(index)
+      // console.log(textArray.value[index].text)
       textArray.value.splice(index, 1)
       break
     case 'image':
-      index = skillBallArray.value.indexOf(name)
+      index = skillBallArray.value.findIndex((e) => e.name == name)
       skillBallArray.value.splice(index, 1)
       break
     case 'attackRect':
-      index = attackBarrierArray.value.indexOf(name)
+      index = attackBarrierArray.value.findIndex((e) => e.name == name)
       attackBarrierArray.value.splice(index, 1)
       break
     case 'defendRect':
-      index = defendBarrierArray.value.indexOf(name)
+      index = defendBarrierArray.value.findIndex((e) => e.name == name)
       defendBarrierArray.value.splice(index, 1)
       break
     default:
       break
   }
 }
-//#endregion
-
-//#region 地图选择
-const selectWrapperImg = computed(() => `url(map/cover/${mapValue.value}.png)`)
-let [map1] = useImage(computed(() => `map/detail/${mapValue.value}.png`))
-watch(
-  map1,
-  (newValue) => {
-    mapImageConfig.value.image = newValue
-  },
-  {
-    immediate: true,
-  },
-)
 //#endregion
 </script>
 

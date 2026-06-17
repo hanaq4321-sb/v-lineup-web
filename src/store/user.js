@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
+// 控制登录dialog
+export const useLoginDialogStore = defineStore('loginDialog', () => {
+  const loginDialogVisible = ref(false)
+  return { loginDialogVisible }
+})
+// 保存设置栏状态
 export const useSettingBarStore = defineStore(
   'settingBar',
   () => {
@@ -16,11 +21,22 @@ export const useSettingBarStore = defineStore(
     persist: true,
   },
 )
-
+// 不同页面间共享当前地图、特工的选中状态
 export const useAgentSelectStore = defineStore('agentSelct', () => {
   const mapValue = ref('breeze')
   const agentValue = ref('sova')
   const agentLabel = ref('猎枭')
   let skillIndex = 3
   return { mapValue, agentValue, agentLabel, skillIndex }
+})
+// Token
+export const useTokenStore = defineStore('token', () => {
+  const token = ref('')
+  const setToken = (newToken) => {
+    token.value = newToken
+  }
+  const removeToken = () => {
+    token.value = ''
+  }
+  return { token, setToken, removeToken }
 })

@@ -35,7 +35,7 @@ import {
 import { mapDraggable, controlMapDraggable, handleWheel, mapZoomButton, mapRotate, resetMap } from '@/styles/js/map-adjust'
 import RotateRight from '~icons/ix/rotate-90-right'
 import RotateLeft from '~icons/ix/rotate-90-left'
-import settingBar from './user/public/settingBar.vue'
+import settingBar from './public/settingBar.vue'
 import { useAgentSelectStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
 //#region 地图、特工、技能信息
