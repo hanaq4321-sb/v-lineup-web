@@ -1,5 +1,7 @@
-<!-- <script src="../../styles/js/editor.js"></script> -->
 <script setup>
+import { usePreloadInfoStore } from '@/store/preload-info'
+import { saveSkillContent } from '@/api/skill-content'
+import { saveThrowSkill, getThrowSkill } from '@/api/skill-type'
 import { ref, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
 import {
@@ -37,12 +39,20 @@ import { mapDraggable, controlMapDraggable, handleWheel, mapZoomButton, mapRotat
 import RotateRight from '~icons/ix/rotate-90-right'
 import RotateLeft from '~icons/ix/rotate-90-left'
 import settingBar from './public/settingBar.vue'
-import { useAgentSelectStore } from '@/store/user'
+import { useAgentSelectStore, useSettingBarStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
+
 //#region 地图、特工、技能信息
 const selectStore = useAgentSelectStore()
-const { mapValue, agentValue, agentLabel } = storeToRefs(selectStore)
-let skillIndex = selectStore.skillIndex
+const settingStore = useSettingBarStore()
+const preloadInfo = usePreloadInfoStore()
+const { mapValue, agentValue, agentLabel, skillIndex } = storeToRefs(selectStore)
+let agentInfo = preloadInfo.agentInfo
+let skillData = preloadInfo.skillData
+// NOTE computed检测ref返回ref，普通数据返回普通？
+let agentDetail = computed(() => agentInfo.find((e) => e.id == agentValue.value))
+let skillDetail = computed(() => skillData.find((e) => e.agentId == agentValue.value && e.skillIndex == skillIndex.value))
+console.log(skillDetail.value)
 const maps = [
   {
     label: '幽邃地窟',
@@ -528,8 +538,8 @@ const groupThrowIconConfig = ref({
 const throwSkillRangeConfig = ref({
   // 接入数据库数据
   radius: 30 * 7,
-  fill: 'rgba(0,0,0,1)',
-  stroke: '#00FFFF',
+  fill: `rgb(` + agentDetail.value.color + `,0.2)`,
+  stroke: 'rgb(108,125,255,0.9)',
   strokeWidth: 4,
   name: 'skillThrowRange',
 })
@@ -548,24 +558,24 @@ const throwSkillCenterConfig = ref({
 const throwAgentIconConfig = ref({
   x: 500,
   y: 700,
-  width: 40,
-  height: 40,
-  offsetX: 20,
-  offsetY: 20,
+  width: 38,
+  height: 38,
+  offsetX: 19,
+  offsetY: 19,
   cornerRadius: 5,
-  fill: '#00FFFF',
+  fill: 'rgb(108,125,255,0.9)',
   image: agentImg,
   draggable: true,
   name: 'skillThrowAgentIcon',
 })
 const throwLineConfig = ref({
-  stroke: '#00FFFF',
+  stroke: 'rgb(108,125,255,0.9)',
   strokeWidth: 4,
   lineCap: 'round',
   name: 'skillThrowLine',
   points: [500, 300, 500, 700],
 })
-let skillRadius = -1
+let skillRadius = 0
 if (skillRadius == -1) {
   throwSkillRangeConfig.value = { fill: 'rgba(0,0,0,0.8)', radius: '18', strokeWidth: 0 }
 }
@@ -1202,10 +1212,10 @@ const skillClick = (index) => {
   }
   // 更换载入图片
   changeImg(index)
-  skillIndex = index
+  skillIndex.value = index
 }
 // 开局默认执行一次，传入用户选定的英雄技能，否则line无法重置
-skillClick(skillIndex)
+skillClick(skillIndex.value)
 const agentSelect = (label) => {
   agentLabel.value = label
   skillSelectIconList.value = [
@@ -1215,7 +1225,7 @@ const agentSelect = (label) => {
     `agent/${agentValue.value}/${agentValue.value}_4.webp`,
   ]
   skillSelectAgent.value = `agent/${agentValue.value}/${agentValue.value}.webp`
-  skillClick(skillIndex)
+  skillClick(skillIndex.value)
 }
 //#endregion
 
@@ -1248,7 +1258,8 @@ const controlAnchorVisibleClick = () => {
 const editInfoDialogVisible = ref(false)
 const toleranceOptions = ref(['高', '中', '低'])
 const postureOptions = ref(['站立', '下蹲', '跳投', '跑投', '跑跳投', '其他'])
-const postureOthers = ref()
+const sideOptions = ref(['进攻方', '防守方'])
+const postureOthers = ref('')
 const sovaStrengthMarks = shallowReactive({
   // NOTE shallowReactive: 浅层响应式，只将对象的第一层属性转换为响应式
   1: '力度1',
@@ -1264,6 +1275,7 @@ const form = reactive({
   strength: 1,
   rebound: 0,
   posture: '',
+  side: '',
 })
 const ruleFormRef = ref()
 const rules = reactive({
@@ -1273,20 +1285,7 @@ const rules = reactive({
   ],
 })
 // 文件列表，选中图片后name和url会添加到这里
-const fileList = ref([
-  {
-    name: '1.jpg',
-    url: 'https://tse3.mm.bing.net/th/id/OIP.8ncjEMhKev8s7a8_5aB2MwHaEK?rs=1&pid=ImgDetMain&o=7&rm=3',
-  },
-  {
-    name: '1.jpg',
-    url: 'https://tse3.mm.bing.net/th/id/OIP.8ncjEMhKev8s7a8_5aB2MwHaEK?rs=1&pid=ImgDetMain&o=7&rm=3',
-  },
-  {
-    name: '1.jpg',
-    url: 'https://tse3.mm.bing.net/th/id/OIP.8ncjEMhKev8s7a8_5aB2MwHaEK?rs=1&pid=ImgDetMain&o=7&rm=3',
-  },
-])
+const fileList = ref([])
 // 图片预览
 const fillPreviewVisible = ref(false)
 const fillPreviewUrl = ref([])
@@ -1316,16 +1315,36 @@ const beforeUpload = (file) => {
   if (whiteList.indexOf(fileSuffix) == -1) {
     ElMessage.error('上传文件只能是图片格式')
     return false
-  }
-  if (file.size / 1024 / 1024 > 10) {
+  } else if (file.size / 1024 / 1024 > 10) {
     ElMessage.error('上传文件大小不能超过10MB')
     return false
   }
+  console.log(fileList.value)
 }
 const exceedLimit = () => {
   ElMessage.error('最多上传6张图片')
 }
 // 表单提交
+const submitForm = async () => {
+  const formData = new FormData()
+  const uuid = crypto.randomUUID()
+  const skillContent = {
+    uuid: uuid,
+    skillName: skillDetail.value.skillName,
+    title: form.title,
+    description: form.description,
+    tolerance: form.tolerance,
+    posture: form.posture,
+    extra: postureOthers.value,
+    side: form.side,
+  }
+  formData.append('skillContent', new Blob([JSON.stringify(skillContent)], { type: 'application/json' }))
+  fileList.value.forEach((e) => {
+    formData.append('file', e.raw)
+  })
+  const result = await saveSkillContent(formData)
+}
+
 const uploadRef = ref()
 const submit = async (form) => {
   if (!form) return
@@ -1335,7 +1354,7 @@ const submit = async (form) => {
   }
   await form.validate((valid, fields) => {
     if (valid) {
-      uploadRef.value.submit()
+      submitForm()
     } else {
       console.log(fields)
     }
@@ -1425,7 +1444,7 @@ const submit = async (form) => {
                   <!-- 技能范围 -->
                   <v-circle :config="throwSkillRangeConfig" />
                   <!-- 技能图标 -->
-                  <v-image :config="throwSkillIconConfig" v-if="skillIconVisible" />
+                  <v-image :config="throwSkillIconConfig" v-if="settingStore.skillIconVisible" />
                   <!-- 技能中心点 -->
                   <v-circle :config="throwSkillCenterConfig" v-else />
                 </v-group>
@@ -1716,10 +1735,12 @@ const submit = async (form) => {
               </el-input-number>
             </div>
           </el-form-item>
+          <el-form-item label="阵营">
+            <el-segmented v-model="form.side" :options="sideOptions" />
+          </el-form-item>
           <el-form-item label="点位图片">
             <div>拖拽文件或者点击上传，大小不超过10MB。点击编辑按钮可为图片添加标注。</div>
             <el-upload
-              action="#"
               ref="uploadRef"
               list-type="picture-card"
               :auto-upload="false"
@@ -1729,6 +1750,7 @@ const submit = async (form) => {
               :limit="6"
               :on-exceed="exceedLimit"
               :before-upload="beforeUpload"
+              :on-change="changeFile"
             >
               <el-icon><Plus /></el-icon>
               <!-- NOTE 插槽作用域，解决通信问题，根据elem文档中对应插槽是否提供类型 -->

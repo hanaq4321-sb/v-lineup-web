@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-// NOTE URLSearchParams post直接跟在后面form-data形式，get用{params：xx}的params形式
+// NOTE URLSearchParams post直接跟在后面form-data，body形式，get用{params：xx}的params形式
 export const userRegisterServie = (username, password, email) => {
   const params = new URLSearchParams({ username: username, password: password, email: email })
   return request.post('/user/register', params)

@@ -22,11 +22,12 @@ export const useSettingBarStore = defineStore(
   },
 )
 // 不同页面间共享当前地图、特工的选中状态
-export const useAgentSelectStore = defineStore('agentSelct', () => {
+export const useAgentSelectStore = defineStore('agentSelect', () => {
   const mapValue = ref('breeze')
   const agentValue = ref('sova')
   const agentLabel = ref('猎枭')
-  let skillIndex = 3
+  // 外部可以直接修改
+  const skillIndex = ref(3)
   return { mapValue, agentValue, agentLabel, skillIndex }
 })
 // Token

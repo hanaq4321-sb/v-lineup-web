@@ -88,7 +88,6 @@ const mapContainerGroupCfg = ref({
 const mapImgGroupCfg = ref({
   width: 1000,
   height: 1000,
-  draggable: false,
   stroke: 'red',
   strokeWidth: 2,
   name: 'mapImgGroup',
@@ -103,7 +102,6 @@ const mapImageConfig = ref({
 const skillGroupConfig = ref({
   width: 1000,
   height: 1000,
-  draggable: false,
   name: 'mapGroup',
   stroke: 'red',
   strokeWidth: 2,
@@ -176,7 +174,7 @@ const addPointText = () => {
     x: 500,
     y: 500,
     text: '请输入点位',
-    fontSize: 19,
+    fontSize: 18,
     fontStyle: 'bold',
     fill: '#fff',
     fontFamily: 'Microsoft JhengHei',
@@ -196,10 +194,10 @@ const addSkillBall = () => {
   skillBallArray.value.push({
     x: 300,
     y: 300,
-    width: 20,
-    height: 20,
-    offset: { x: 10, y: 10 },
-    cornerRadius: 10,
+    width: 18,
+    height: 18,
+    offset: { x: 9, y: 9 },
+    cornerRadius: 9,
     draggable: true,
     image: skillBallImg,
     id: 'skillBall',
@@ -240,7 +238,7 @@ const addDefendBarrier = () => {
   addNodeTemp.push(defendBarrierArray.value[defendBarrierArray.value.length - 1].name)
 }
 //#endregion
-
+// BUG 浏览器收缩导致settingbar消失
 //#endregion
 
 //#region 地图切换、删除、提交
@@ -264,7 +262,7 @@ watch(
       pointList.forEach((e) => {
         textArray.value.push({
           ...e,
-          fontSize: 19,
+          fontSize: 18,
           fontStyle: 'bold',
           fill: '#fff',
           fontFamily: 'Microsoft JhengHei',
@@ -299,10 +297,10 @@ watch(
       skillBallList.forEach((e) => {
         skillBallArray.value.push({
           ...e,
-          width: 20,
-          height: 20,
-          offset: { x: 10, y: 10 },
-          cornerRadius: 10,
+          width: 18,
+          height: 18,
+          offset: { x: 9, y: 9 },
+          cornerRadius: 9,
           draggable: true,
           image: skillBallImg,
           id: 'skillBall',
@@ -347,7 +345,7 @@ const submit = async () => {
     barrierJson.push({
       uuid: e.name(),
       ...e.position(),
-      angle: e.rotation(),
+      rotation: e.rotation(),
       scaleX: e.scaleX(),
       side: 1,
       mapId: selectStore.mapValue,
@@ -357,7 +355,7 @@ const submit = async () => {
     barrierJson.push({
       uuid: e.name(),
       ...e.position(),
-      angle: e.rotation(),
+      rotation: e.rotation(),
       scaleX: e.scaleX(),
       side: 0,
       mapId: selectStore.mapValue,
