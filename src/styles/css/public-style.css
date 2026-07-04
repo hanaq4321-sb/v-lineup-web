@@ -35,9 +35,10 @@
   background-color: #1a1a1a !important;
 }
 
-.el-form-item__label{
-  /* font-size: 16px !important; */
+.el-form-item__label , .el-form-item__content {
+  font-size: 16px !important;
 }
+
 
 html.dark{
   --el-text-color-regular:#fff !important;
@@ -48,6 +49,8 @@ html.dark{
 }
 
 body{
+  --font-size:19px !important;
+  --el-font-size-base: 16px;
   font-family: 'Arial';
 }
 

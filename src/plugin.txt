@@ -1,0 +1,30 @@
+npm install element-plus@latest
+
+# 导入iconify
+npm i -D @iconify/json
+npm i -D unplugin-icons
+
+# fabric
+npm install fabric --save
+
+#konva
+npm install konva
+npm install vue-konva konva --save
+
+#router
+npm install vue-router@4
+
+#转化为webp
+npm i unplugin-imagemin -D
+
+pinia、pinia-plugin-persistedstate
+
+#axios
+npm install axios
+
+#ffmpeg
+npm install @ffmpeg/ffmpeg @ffmpeg/core @ffmpeg/util -S
+
+@ffmpeg/core-mt
+
+vedio.js

@@ -9,15 +9,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/core-mt": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.2",
     "axios": "^1.17.0",
     "element-plus": "^2.13.6",
     "konva": "^10.2.5",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "sass": "^1.97.3",
+    "video.js": "^8.23.9",
     "vue": "^3.5.28",
     "vue-konva": "^3.4.0",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "xgplayer": "^3.0.24"
   },
   "devDependencies": {
     "@iconify/json": "^2.2.446",
@@ -26,6 +32,7 @@
     "unplugin-icons": "^23.0.1",
     "unplugin-imagemin": "^0.7.0",
     "vite": "^7.3.1",
+    "vite-plugin-cross-origin-isolation": "^0.1.6",
     "vite-plugin-vue-devtools": "^8.0.6"
   },
   "engines": {

@@ -343,7 +343,7 @@ const uploadSelect = (type) => {
     </el-header>
     <el-main>
       <router-view v-slot="{ Component }">
-        <keep-alive include="mapPointsEdit">
+        <keep-alive include="mapPointsEdit,LineUpPenetrate,LineUpEditor,LineUpKonva">
           <component :is="Component" :key="$route.fullPath" />
         </keep-alive>
       </router-view>

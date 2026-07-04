@@ -1,14 +1,29 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useSettingBarStore } from '@/store/user'
+import { usePreloadInfoStore } from '@/store/preload-info'
 import { Tools, DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
 import { controlMapDraggable } from '@/styles/js/map-adjust'
+import { storeToRefs } from 'pinia'
 
 // 绑定属性
 const setStore = useSettingBarStore()
+const { settingBarVisible, favoriteAgent } = storeToRefs(setStore)
+const preloadInfoStore = usePreloadInfoStore()
+let agentInfo = preloadInfoStore.agentInfo
 let stageRef = defineProps(['stage'])
 // 开关动画
-const settingBarVisible = ref(false)
+
+onMounted(() => {
+  const box = document.querySelector('.setting-bar')
+  if (settingBarVisible.value == true) {
+    box.style.minWidth = '300px'
+  } else {
+    box.style.minWidth = '0px'
+  }
+  const favoriteAgentImage = document.getElementById('favoriteAgent' + favoriteAgent.value)
+  favoriteAgentImage.style.backgroundColor = '#96ef7b'
+})
 const settingBarSwitchOn = () => {
   const box = document.querySelector('.setting-bar')
   if (box.classList.contains('setting-bar-anime-fold')) {
@@ -21,12 +36,13 @@ const settingBarSwitchOff = () => {
   box.classList.remove('setting-bar-anime-unfold')
   box.classList.add('setting-bar-anime-fold')
 }
-const settingBarAgentClick = (e, agent) => {
+const settingBarAgentClick = (e, agent, agentName) => {
   let dom = document.getElementsByClassName('agent-img')
   for (let i = 0; i < dom.length; i++) {
     dom[i].style.backgroundColor = '#363636'
   }
   e.currentTarget.style.backgroundColor = '#96ef7b'
+  favoriteAgent.value = agent
 }
 </script>
 <template>
@@ -68,10 +84,11 @@ const settingBarAgentClick = (e, agent) => {
       <div class="agent-img-container">
         <img
           class="agent-img"
-          :src="`agent/${item.value}/${item.value}.webp`"
-          v-for="(item, index) in agents"
+          :src="`agent/${item.id}/${item.id}.webp`"
+          v-for="(item, index) in agentInfo"
           :key="index"
-          @click="settingBarAgentClick($event, item.value)"
+          @click="settingBarAgentClick($event, item.id, item.agentName)"
+          :id="'favoriteAgent' + item.id"
         />
       </div>
     </div>

@@ -63,8 +63,6 @@ export const mapZoomButton = (s, stageRef) => {
 let degree = 0
 export const mapRotate = (d, stageRef) => {
   degree += d
-  // TODO 是否更好解决方案，切换其他时的角度
-  degree = degree % 360
   const stage = stageRef.getNode()
   const mapContainerGroup = stage.findOne('.mapContainerGroup')
   mapContainerGroup.to({ rotation: degree })
@@ -73,6 +71,12 @@ export const mapRotate = (d, stageRef) => {
   skillIcon.forEach((icon) => {
     icon.to({ rotation: -degree })
   })
+  const mapPoint = stage.find('#point')
+  if (mapPoint != []) {
+    mapPoint.forEach((icon) => {
+      icon.to({ rotation: -degree })
+    })
+  }
 }
 export const resetMap = (stageRef) => {
   // NOTE stage的scale是为了实现滚轮缩放，stage适应屏幕通过修改config实现，group的scale是为了适应不同屏幕。在此要分别重置stage的偏移和group的drag
@@ -82,10 +86,16 @@ export const resetMap = (stageRef) => {
   stage.scale({ x: 1, y: 1 })
   const mapContainerGroup = stage.findOne('.mapContainerGroup') // 直接大写按类型、.按name、#按id。name和id为config中的
   degree = 0
-  mapContainerGroup.to({ rotation: degree })
+  mapContainerGroup.rotation(degree)
   const skillGroup = stage.findOne('.mapGroup')
   const skillIcon = skillGroup.find('Image')
   skillIcon.forEach((icon) => {
-    icon.to({ rotation: -degree })
+    icon.rotation(degree)
   })
+  const mapPoint = stage.find('#point')
+  if (mapPoint != []) {
+    mapPoint.forEach((icon) => {
+      icon.rotation(degree)
+    })
+  }
 }

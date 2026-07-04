@@ -6,6 +6,7 @@ export const useLoginDialogStore = defineStore('loginDialog', () => {
   return { loginDialogVisible }
 })
 // 保存设置栏状态
+let favoriteAgent = ref('sova')
 export const useSettingBarStore = defineStore(
   'settingBar',
   () => {
@@ -14,8 +15,20 @@ export const useSettingBarStore = defineStore(
       lightCurtainVisible = ref(false),
       controlAnchorVisible = ref(false),
       skillIconVisible = ref(false),
-      mapDraggable = ref(true)
-    return { pointNameVisible, skillBallVisible, lightCurtainVisible, controlAnchorVisible, controlAnchorVisible, skillIconVisible, mapDraggable }
+      mapDraggable = ref(true),
+      settingBarVisible = ref(false)
+    favoriteAgent = ref('sova')
+    return {
+      pointNameVisible,
+      skillBallVisible,
+      lightCurtainVisible,
+      controlAnchorVisible,
+      controlAnchorVisible,
+      skillIconVisible,
+      mapDraggable,
+      settingBarVisible,
+      favoriteAgent,
+    }
   },
   {
     persist: true,
