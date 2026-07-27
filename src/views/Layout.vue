@@ -1,13 +1,15 @@
 <script setup>
 import { userRegisterServie, getUserInfoService, getUserCountByEmailService, loginService } from '@/api/user'
 import { ref, reactive, onMounted, computed, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Upload, User, Message, Operation, SwitchButton, ArrowRight, Right } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useLoginDialogStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
-import MapPointsEdit from './user/mapPointsEdit.vue'
+import { useTokenStore } from '@/store/user'
+
 const router = useRouter()
+const tokenStore = useTokenStore()
 
 //#region 响应处理
 const registerRequest = async (username, password, email) => {
@@ -24,6 +26,19 @@ const registerRequest = async (username, password, email) => {
 
 // 搜索
 const search = ref('')
+
+//#region 头像栏按钮
+const logOut = () => {
+  ElMessageBox.confirm('确定要退出登录？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    tokenStore.removeToken()
+    location.reload()
+  })
+}
+//#endregion
 
 //#region 头像动画控制
 const avatarHover = () => {
@@ -212,6 +227,7 @@ const login = (formEl) => {
       if (result.code == 0) {
         ElMessage.success('登陆成功')
         loginDialogVisible.value = false
+        tokenStore.setToken(result.data)
       } else {
         ElMessage.error(result.msg)
       }
@@ -330,7 +346,7 @@ const uploadSelect = (type) => {
               <el-icon><ArrowRight /></el-icon>
             </div>
             <hr class="avatar-divider" />
-            <div class="avatar-button">
+            <div class="avatar-button" @click="logOut">
               <el-icon><SwitchButton /></el-icon>
               <span>退出登录</span>
               <el-icon><ArrowRight /></el-icon>

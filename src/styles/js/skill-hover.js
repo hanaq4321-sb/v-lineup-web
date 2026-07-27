@@ -1,11 +1,7 @@
-import pinia from '@/store/store'
 import { usePreloadInfoStore } from '@/store/preload-info'
 import { storeToRefs } from 'pinia'
-import { ElEmpty } from 'element-plus'
-
-const preloadStore = usePreloadInfoStore(pinia)
+const preloadStore = usePreloadInfoStore()
 const { skillDetail, agentDetail } = storeToRefs(preloadStore)
-
 const throwHover = (e) => {
   const groupNode = e.currentTarget
   const line = groupNode.findOne('#line')
@@ -35,5 +31,4 @@ const throwUnHover = (e) => {
   background.fill('rgb(27, 144, 255,0.9)')
   background.visible(false)
 }
-
 export { throwHover, throwUnHover }

@@ -4,7 +4,7 @@ import 'xgplayer/dist/index.min.css'
 import { useFFmpeg } from '@/utils/ffmpeg'
 import { usePreloadInfoStore } from '@/store/preload-info'
 import { saveSkillContent } from '@/api/skill-content'
-import { saveThrowSkill, getThrowSkill } from '@/api/skill-type'
+import { saveThrowSkill } from '@/api/skill-type'
 import { nextTick, ref, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
 import {

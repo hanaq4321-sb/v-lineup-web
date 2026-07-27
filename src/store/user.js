@@ -35,22 +35,34 @@ export const useSettingBarStore = defineStore(
   },
 )
 // 不同页面间共享当前地图、特工的选中状态
-export const useAgentSelectStore = defineStore('agentSelect', () => {
-  const mapValue = ref('breeze')
-  const agentValue = ref('sova')
-  const agentLabel = ref('猎枭')
-  // 外部可以直接修改
-  const skillIndex = ref(3)
-  return { mapValue, agentValue, agentLabel, skillIndex }
-})
+export const useAgentSelectStore = defineStore(
+  'agentSelect',
+  () => {
+    const mapValue = ref('breeze')
+    const agentValue = ref('sova')
+    const agentLabel = ref('猎枭')
+    // 外部可以直接修改
+    const skillIndex = ref(3)
+    return { mapValue, agentValue, agentLabel, skillIndex }
+  },
+  {
+    persist: true,
+  },
+)
 // Token
-export const useTokenStore = defineStore('token', () => {
-  const token = ref('')
-  const setToken = (newToken) => {
-    token.value = newToken
-  }
-  const removeToken = () => {
-    token.value = ''
-  }
-  return { token, setToken, removeToken }
-})
+export const useTokenStore = defineStore(
+  'token',
+  () => {
+    const token = ref('')
+    const setToken = (newToken) => {
+      token.value = newToken
+    }
+    const removeToken = () => {
+      token.value = ''
+    }
+    return { token, setToken, removeToken }
+  },
+  {
+    persist: true,
+  },
+)

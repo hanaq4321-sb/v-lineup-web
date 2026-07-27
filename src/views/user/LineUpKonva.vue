@@ -4,8 +4,9 @@ import 'xgplayer/dist/index.min.css'
 import { useFFmpeg } from '@/utils/ffmpeg'
 import { usePreloadInfoStore } from '@/store/preload-info'
 import { getSkillContentService, updateSkillContentVideoService } from '@/api/skill-content'
-import { saveThrowSkill, getThrowSkill } from '@/api/skill-type'
-import { nextTick, ref, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
+import { getThrowSkillService, getThrowSkillCollectService, getThrowSkillCountsService } from '@/api/skill-type'
+import { ifCollectService, addCollectService, deleteCollectService } from '@/api/collect-like'
+import { nextTick, ref, onBeforeMount, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
 import {
   Star,
@@ -45,14 +46,14 @@ import RotateLeft from '~icons/ix/rotate-90-left'
 import settingBar from './public/settingBar.vue'
 import Like from '~icons/mdi/like-outline'
 import LikeFilled from '~icons/mdi/like'
-import { useAgentSelectStore, useSettingBarStore } from '@/store/user'
+import { useAgentSelectStore, useSettingBarStore, useTokenStore } from '@/store/user'
 import { storeToRefs } from 'pinia'
-import * as hover from '@/styles/js/skill-hover'
 
 //#region 地图、特工、技能信息
 const { progress, compressVideo } = useFFmpeg()
 const selectStore = useAgentSelectStore()
 const settingStore = useSettingBarStore()
+const tokenStokre = useTokenStore()
 const preloadInfo = usePreloadInfoStore()
 const { mapValue, agentValue, agentLabel, skillIndex } = storeToRefs(selectStore)
 const { pointNameVisible, skillBallVisible, lightCurtainVisible } = storeToRefs(settingStore)
@@ -126,7 +127,14 @@ const observer = new ResizeObserver(() => {
   group.position({ x: mapContainerRef.value.clientWidth / 2, y: mapContainerRef.value.clientHeight / 2 })
   stage.batchDraw()
 })
-onMounted(() => {
+const hover = ref(null)
+onBeforeMount(async () => {
+  // NOTE 要先use(pinia)后才能使用，而正常导入js文件优先级非常高，会先于app.use。故这里使用延迟动态导入
+  // NOTE 钩子函数中await并阻碍整体的渲染，只会影响钩子函数内部的顺序，故使用v-if等待加载完成后再渲染
+  const { throwHover, throwUnHover } = await import('@/styles/js/skill-hover')
+  hover.value = { throwHover, throwUnHover }
+})
+onMounted(async () => {
   observer.observe(mapContainerRef.value)
 })
 onBeforeUnmount(() => {
@@ -775,14 +783,12 @@ const controlAnchorVisibleClick = () => {
 }
 //#endregion
 
-// 收藏
-const ifSwitchCollect = ref(false)
-
 //#region 地图描点展示
 const lineupDialogVisible = ref(false)
 const dialogContent = ref(null)
 const isLineUpPreview = ref(false)
 const lineUpPreviewIndex = ref(0)
+const currentTooltip = ref()
 let uuid = null
 const showLineUpPreview = (index) => {
   lineUpPreviewIndex.value = index
@@ -811,14 +817,53 @@ const showContent = async (e) => {
       title: content.title,
       tolerance: content.tolerance,
       video: content.video,
+      updateTime: content.updateTime,
     }
     content.picture.forEach((e) => {
       dialogContent.value.previewList.push(e.url)
     })
     console.log(dialogContent.value.previewList)
+    isAlreadyCollect()
   } else {
     console.log(result.msg)
     ElMessage.error('获取技能内容失败')
+  }
+}
+const isAlreadyCollect = async () => {
+  if (tokenStokre.token) {
+    const result = await ifCollectService(tokenStokre.token, uuid)
+    if (result.code == 0) {
+      isCollect.value = result.data
+    } else {
+      console.log('收藏验证失败')
+    }
+  } else {
+    isCollect.value = false
+  }
+}
+const collectClick = async () => {
+  const { loginDetection } = await import('@/styles/js/public')
+  const isLogin = loginDetection()
+  if (!isLogin) return
+  let result = null
+  if (isCollect.value) {
+    result = await deleteCollectService(tokenStokre.token, uuid)
+    if (result.code == 0) {
+      ElMessage.success('已取消收藏')
+      isCollect.value = !isCollect.value
+    } else {
+      console.log(result.msg)
+      ElMessage.error('取消收藏失败')
+    }
+  } else {
+    result = await addCollectService(tokenStokre.token, uuid)
+    if (result.code == 0) {
+      ElMessage.success('已收藏')
+      isCollect.value = !isCollect.value
+    } else {
+      console.log(result.msg)
+      ElMessage.error('收藏失败')
+    }
   }
 }
 // 视频
@@ -929,23 +974,39 @@ const submitVideo = async () => {
 }
 //#endregion
 
+//#region 收藏
+const ifSwitchCollect = ref(false)
+const showCollect = async () => {
+  const { loginDetection } = await import('@/styles/js/public')
+  const isLogin = loginDetection()
+  if (!isLogin) return
+  ifSwitchCollect.value = !ifSwitchCollect.value
+  if (ifSwitchCollect.value) {
+    getSkillCollectLocation()
+  } else {
+    getSkillLocation()
+  }
+}
+
+//#endregion
+
 //#region 地图和技能选择
 // 地图选择
 // NOTE 直接在src中写可以使用上下级相对路径，但传入属性时只能从src传入
 const selectWrapperImg = computed(() => `url(map/cover/${mapValue.value}.png)`)
-console.log(selectWrapperImg.value)
 let [map1] = useImage(computed(() => `map/detail/${mapValue.value}.png`))
 watch(map1, (newValue) => {
   mapImageConfig.value.image = newValue
 })
 // 技能选择边框样式
-const ifSkillIconDetail = ref([{ bool: false }, { bool: false }, { bool: true }, { bool: false }])
+const ifSkillIconDetail = ref([false, false, true, false])
 const skillIcon = 'skill-icon'
 const skillIconClick = 'skill-icon-click'
 // 技能选择
 let lastIndex = -1,
   lastAgent = ''
 const skillLocationList = ref([])
+const skillCounts = ref(0)
 const skillClick = async (index) => {
   if (index == lastIndex && agentValue.value == lastAgent) return
   lastIndex = index
@@ -993,13 +1054,58 @@ const skillClick = async (index) => {
   changeImg(index)
   skillIndex.value = index
   console.log('type:' + skillType.value, 'map:' + mapValue.value, 'agent:' + agentValue.value, 'index:' + index)
-  const result = await getThrowSkill(mapValue.value, agentValue.value, index)
+  getSkillLocation()
+  // 选中提示
+  ifSkillIconDetail.value.forEach((item, index, array) => {
+    array[index] = false
+  })
+  ifSkillIconDetail.value[index - 1] = true
+  console.log(ifSkillIconDetail.value)
+}
+// 阵营选择
+const sideSelect = ref('所有')
+const sideSelectChange = () => {
+  if (ifSwitchCollect.value) {
+    getSkillCollectLocation()
+  } else {
+    getSkillLocation()
+  }
+}
+// 拉取技能位置信息
+const getSkillLocation = async () => {
+  let result = null,
+    counts = null
+  switch (skillType.value) {
+    case 'throw':
+      result = await getThrowSkillService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      counts = await getThrowSkillCountsService(mapValue.value, agentValue.value, lastIndex)
+      break
+    default:
+      break
+  }
+  console.log(result)
+  if (result.code == 0 && counts.code == 0) {
+    skillLocationList.value = result.data
+    skillCounts.value = counts.data
+  } else {
+    ElMessage.error('获取技能位置信息失败')
+    console.log(result.msg, counts.code)
+  }
+}
+const getSkillCollectLocation = async () => {
+  let result = null
+  switch (skillType.value) {
+    case 'throw':
+      result = await getThrowSkillCollectService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      break
+    default:
+      break
+  }
   if (result.code == 0) {
     skillLocationList.value = result.data
-    console.log(skillLocationList)
   } else {
+    ElMessage.error('获取收藏技能位置信息失败')
     console.log(result.msg)
-    ElMessage.error('获取道具定位信息失败')
   }
 }
 // 开局默认执行一次，传入用户选定的英雄技能，否则line无法重置
@@ -1056,61 +1162,44 @@ const agentSelect = (label) => {
       <!-- 技能选择 -->
       <div class="row-space">
         <div class="skills">
-          <img
-            :class="ifSkillIconDetail[0].bool ? skillIconClick : skillIcon"
-            src="../../assets/agent/sova/sova_1.webp"
-            @click="(skillClick(1), (ifSkillIconDetail[0].bool = !ifSkillIconDetail[0].bool))"
-          />
-          <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[0].bool" size="small" effect="dark" type="success" round>9</el-tag>
-          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[0].bool" color="green" size="15"><Check /></el-icon>
+          <img :class="ifSkillIconDetail[0] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_1.webp" @click="skillClick(1)" />
+          <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[0]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
+          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[0]" color="green" size="15"><Check /></el-icon>
         </div>
         <div class="skills">
-          <img
-            :class="ifSkillIconDetail[1].bool ? skillIconClick : skillIcon"
-            src="../../assets/agent/sova/sova_2.webp"
-            @click="(skillClick(2), (ifSkillIconDetail[1].bool = !ifSkillIconDetail[1].bool))"
-          />
-          <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[1].bool" size="small" effect="dark" type="success" round>22</el-tag>
-          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[1].bool" color="green" size="15"><Check /></el-icon>
+          <img :class="ifSkillIconDetail[1] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_2.webp" @click="skillClick(2)" />
+          <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[1]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
+          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[1]" color="green" size="15"><Check /></el-icon>
         </div>
         <div class="skills">
-          <img
-            :class="ifSkillIconDetail[2].bool ? skillIconClick : skillIcon"
-            src="../../assets/agent/sova/sova_3.webp"
-            @click="(skillClick(3), (ifSkillIconDetail[2].bool = !ifSkillIconDetail[2].bool))"
-          />
-          <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[2].bool" size="small" effect="dark" type="success" round>22</el-tag>
-          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[2].bool" color="green" size="15"><Check /></el-icon>
+          <img :class="ifSkillIconDetail[2] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_3.webp" @click="skillClick(3)" />
+          <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[2]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
+          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[2]" color="green" size="15"><Check /></el-icon>
         </div>
         <div class="skills">
-          <img
-            :class="ifSkillIconDetail[3].bool ? skillIconClick : skillIcon"
-            src="../../assets/agent/sova/sova_4.webp"
-            @click="(skillClick(4), (ifSkillIconDetail[3].bool = !ifSkillIconDetail[3].bool))"
-          />
-          <el-tag class="skill-iconnum" v-if="ifSkillIconDetail[3].bool" size="small" effect="dark" type="success" round>22</el-tag>
-          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[3].bool" color="green" size="15"><Check /></el-icon>
+          <img :class="ifSkillIconDetail[3] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_4.webp" @click="skillClick(4)" />
+          <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[3]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
+          <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[3]" color="green" size="15"><Check /></el-icon>
         </div>
       </div>
       <!-- 阵营选择 -->
       <div>
         <p class="label-text">选择阵营</p>
-        <el-radio-group class="camp-select" v-model="camp" size="large" fill="#363636">
-          <el-radio-button class="all" label="所有" value="All"> </el-radio-button>
-          <el-radio-button class="t" label="进攻方" value="T"></el-radio-button>
-          <el-radio-button class="ct" label="防守方" value="CT"></el-radio-button>
+        <el-radio-group class="camp-select" v-model="sideSelect" size="large" fill="#96ef7b" @change="sideSelectChange">
+          <el-radio-button class="all" label="所有" value="所有"> </el-radio-button>
+          <el-radio-button class="t" label="进攻方" value="进攻方"></el-radio-button>
+          <el-radio-button class="ct" label="防守方" value="防守方"></el-radio-button>
         </el-radio-group>
       </div>
       <br /><br />
       <!-- 收藏点位 -->
-      <el-button class="show-collect" color="#363636" @click="ifSwitchCollect = !ifSwitchCollect">
-        <template #default v-if="!ifSwitchCollect">
+      <el-button class="show-collect" :color="ifSwitchCollect ? '#96ef7b' : '#363636'" @click="showCollect">
+        <template #default>
           收藏点位<el-icon class="el-icon--right"><Star /></el-icon>
         </template>
-        <template #default v-if="ifSwitchCollect">
-          全部点位<el-icon class="el-icon--right"><Compass /></el-icon>
-        </template>
       </el-button>
+      <!-- 备案 -->
+      <el-link class="icp" href="https://beian.miit.gov.cn/" type="info" style="font-size: 14px" underline="never">鲁ICP备2026037394号-1</el-link>
     </div>
     <!-- 地图 -->
     <div class="map-container" ref="mapContainerRef" @contextmenu.prevent>
@@ -1125,9 +1214,10 @@ const agentSelect = (label) => {
               <v-rect :config="barrier" v-for="barrier in attackBarrierArray" :key="barrier.name" v-if="lightCurtainVisible == true" />
               <v-rect :config="barrier" v-for="barrier in defendBarrierArray" :key="barrier.name" v-if="lightCurtainVisible == true" />
             </v-group>
-            <v-group :config="skillGroupConfig">
-              <!-- throw型 -->
-              <template v-if="skillType == 'throw'">
+            <div v-if="hover">
+              <v-group :config="skillGroupConfig">
+                <!-- throw型 -->
+                <!-- <template v-if="skillType == 'throw'"> -->
                 <v-group
                   :config="{ name: 'groupThrow', id: skill.uuid }"
                   v-for="skill in skillLocationList"
@@ -1135,6 +1225,7 @@ const agentSelect = (label) => {
                   @mouseenter="hover.throwHover"
                   @mouseleave="hover.throwUnHover"
                   @mousedown="showContent"
+                  v-if="skillType == 'throw'"
                 >
                   <!-- 连线 -->
                   <v-line
@@ -1189,197 +1280,199 @@ const agentSelect = (label) => {
                     v-show="false"
                   />
                 </v-group>
-              </template>
+                <!-- </template> -->
 
-              <!-- throwGround型 -->
-              <v-group :config="{ name: 'groupThrowGroud' }" v-if="skillType == 'throwGround'">
-                <v-line :config="throwGroundLineCfg" />
-                <v-group
-                  :config="{ name: 'groupThrowGroudIcon', x: 500, y: 300, draggable: true }"
-                  @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
-                >
-                  <v-circle :config="throwGroundCircleCfg" v-if="!skillIconVisible" />
-                  <v-image :config="throwGroundIconCfg" v-if="!skillIconVisible" />
-                  <v-image :config="throwGroundRealCfg" v-if="skillIconVisible" />
-                </v-group>
-                <v-image
-                  :config="throwGroundAgentCfg"
-                  @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
-                />
-              </v-group>
-              <!-- curve型 -->
-              <v-group :config="{ name: 'groupCurve' }" v-if="skillType == 'curve'">
-                <v-line :config="curveConfig" />
-                <v-circle
-                  v-if="controlAnchorVisible"
-                  v-for="circle in controlAnchorList"
-                  :config="circle"
-                  @dragmove="controlAnchorDrag(circle.name)"
-                  @contextmenu="rightMenu(circle.name, $event)"
-                />
-              </v-group>
-              <!-- polygon型 -->
-              <v-group :config="{ name: 'groupPolygon', draggable: true }" v-if="skillType == 'polygon'">
-                <v-line :config="polygonConfig" />
-                <v-circle
-                  v-if="controlAnchorVisible"
-                  v-for="circle in controlAnchorList"
-                  :config="circle"
-                  @dragmove="controlAnchorDrag(circle.name)"
-                  @contextmenu="rightMenu(circle.name, $event)"
-                />
-              </v-group>
-              <!-- line型 -->
-              <v-group :config="{ name: 'groupLine', x: 500, y: 500, draggable: true }" v-if="skillType == 'line'">
-                <v-rect :config="lineRectCfg" />
-                <v-group
-                  :config="groupLineRotateControl"
-                  @mousedown="ControlRotate($event, stageRef, '.groupLine')"
-                  @mouseenter="controlHover"
-                  @mouseleave="controlLeave"
-                >
-                  <v-circle :config="rotateControlCircle" />
-                  <v-image :config="rotateControlImg" />
-                </v-group>
-                <v-group :config="{ name: 'groupLineIcon' }">
-                  <v-circle :config="placeIconCircleCfg" />
-                  <v-image :config="placeImgCfg" />
-                </v-group>
-              </v-group>
-              <!-- control型 -->
-              <v-group :config="{ name: 'groupControl' }" v-if="skillType == 'control'">
-                <el-button type="success" @click="controlAnimaBuild">创建</el-button>
-                <el-button type="danger" @click="controlAnimaStart">启动</el-button>
-                <el-button type="info" @click="controlAnimaEnd">停止</el-button>
-                <v-line :config="controlLineConfig" />
-                <v-circle
-                  v-for="circle in controlAnchorList"
-                  :config="circle"
-                  @dragmove="controlAnchorDrag(circle.name)"
-                  @contextmenu="rightMenu(circle.name, $event)"
-                />
-                <v-group :config="groupControlIconConfig" @dragmove="controlSkillIconDrag">
-                  <v-circle :config="controlStrokeConfig" />
-                  <v-image :config="controlImgConfig" />
-                </v-group>
-              </v-group>
-              <!-- controlStraight型-->
-              <v-group :config="{ name: 'groupControlStraight' }" v-if="skillType == 'controlStraight'">
-                <v-line :config="controlStraightLineConfig" />
-                <v-circle
-                  v-for="circle in controlAnchorList"
-                  :config="circle"
-                  @dragmove="controlAnchorDrag(circle.name)"
-                  @contextmenu="rightMenu(circle.name, $event)"
-                />
-                <v-group :config="groupControlIconConfig" @dragmove="controlSkillIconDrag">
-                  <v-circle :config="controlStrokeConfig" />
-                  <v-image :config="controlImgConfig" />
-                </v-group>
-              </v-group>
-              <!-- circle型 -->
-              <v-group :config="{ name: 'groupCircle', x: 300, y: 400, draggable: true }" v-if="skillType == 'circle'">
-                <v-circle :config="circleStrokeConfig" v-if="!skillIconVisible" />
-                <v-circle :config="circleShadeConfig" v-if="!skillIconVisible" />
-                <v-image :config="circleImgConfig" v-if="skillIconVisible" />
-                <v-circle :config="circleCenterConfig" v-if="!skillIconVisible" />
-              </v-group>
-              <!-- place型 -->
-              <!-- NOTE placeType从v-for中读取 -->
-              <v-group :config="{ name: 'groupPlace', x: 500, y: 500, draggable: true }" v-if="skillType == 'place'">
-                <v-group :config="{ name: 'groupPlaceRect' }" v-if="placeType == 'rect'">
-                  <v-rect :config="placeRectCfg" />
+                <!-- throwGround型 -->
+                <v-group :config="{ name: 'groupThrowGroud' }" v-if="skillType == 'throwGround'">
+                  <v-line :config="throwGroundLineCfg" />
                   <v-group
-                    :config="groupPlaceRectRotateControl"
-                    @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
+                    :config="{ name: 'groupThrowGroudIcon', x: 500, y: 300, draggable: true }"
+                    @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
+                  >
+                    <v-circle :config="throwGroundCircleCfg" v-if="!skillIconVisible" />
+                    <v-image :config="throwGroundIconCfg" v-if="!skillIconVisible" />
+                    <v-image :config="throwGroundRealCfg" v-if="skillIconVisible" />
+                  </v-group>
+                  <v-image
+                    :config="throwGroundAgentCfg"
+                    @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
+                  />
+                </v-group>
+                <!-- curve型 -->
+                <v-group :config="{ name: 'groupCurve' }" v-if="skillType == 'curve'">
+                  <v-line :config="curveConfig" />
+                  <v-circle
+                    v-if="controlAnchorVisible"
+                    v-for="circle in controlAnchorList"
+                    :config="circle"
+                    @dragmove="controlAnchorDrag(circle.name)"
+                    @contextmenu="rightMenu(circle.name, $event)"
+                  />
+                </v-group>
+                <!-- polygon型 -->
+                <v-group :config="{ name: 'groupPolygon', draggable: true }" v-if="skillType == 'polygon'">
+                  <v-line :config="polygonConfig" />
+                  <v-circle
+                    v-if="controlAnchorVisible"
+                    v-for="circle in controlAnchorList"
+                    :config="circle"
+                    @dragmove="controlAnchorDrag(circle.name)"
+                    @contextmenu="rightMenu(circle.name, $event)"
+                  />
+                </v-group>
+                <!-- line型 -->
+                <v-group :config="{ name: 'groupLine', x: 500, y: 500, draggable: true }" v-if="skillType == 'line'">
+                  <v-rect :config="lineRectCfg" />
+                  <v-group
+                    :config="groupLineRotateControl"
+                    @mousedown="ControlRotate($event, stageRef, '.groupLine')"
                     @mouseenter="controlHover"
                     @mouseleave="controlLeave"
                   >
                     <v-circle :config="rotateControlCircle" />
                     <v-image :config="rotateControlImg" />
                   </v-group>
-                </v-group>
-                <v-group :config="{ name: 'groupPlaceCircle' }" v-if="placeType == 'circle'">
-                  <v-circle :config="placeCircleCfg" />
-                </v-group>
-                <v-group :config="{ name: 'groupPlaceSector' }" v-if="placeType == 'sector'">
-                  <v-wedge :config="placeSectorWedge" />
-                  <v-path :config="placeSectorPath" />
-                  <v-group
-                    :config="groupPlaceSectorRotateControl"
-                    @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
-                    @mouseenter="controlHover"
-                    @mouseleave="controlLeave"
-                  >
-                    <v-circle :config="rotateControlCircle" />
-                    <v-image :config="rotateControlImg" />
+                  <v-group :config="{ name: 'groupLineIcon' }">
+                    <v-circle :config="placeIconCircleCfg" />
+                    <v-image :config="placeImgCfg" />
                   </v-group>
                 </v-group>
-                <v-group :config="{ name: 'groupPlaceStraight' }" v-if="placeType == 'straight'">
-                  <v-line :config="placeStraightLine" />
-                  <v-circle :config="placeStraightStartControl" @mousedown="placeStriaghtControlMove($event, 0)" />
-                  <v-circle :config="placeStraightEndControl" @mousedown="placeStriaghtControlMove($event, 1)" />
-                </v-group>
-                <v-group :config="{ name: 'groupPlaceCross' }" v-if="placeType == 'cross'">
-                  <v-line :config="placeCrossLine1" />
-                  <v-line :config="placeCrossLine2" />
+                <!-- control型 -->
+                <v-group :config="{ name: 'groupControl' }" v-if="skillType == 'control'">
+                  <el-button type="success" @click="controlAnimaBuild">创建</el-button>
+                  <el-button type="danger" @click="controlAnimaStart">启动</el-button>
+                  <el-button type="info" @click="controlAnimaEnd">停止</el-button>
+                  <v-line :config="controlLineConfig" />
                   <v-circle
-                    :config="placeCrossControl1"
-                    @mousedown="placeControlAdjustLength($event, 0)"
-                    @mouseenter="controlHover"
-                    @mouseleave="controlLeave"
+                    v-for="circle in controlAnchorList"
+                    :config="circle"
+                    @dragmove="controlAnchorDrag(circle.name)"
+                    @contextmenu="rightMenu(circle.name, $event)"
                   />
-                  <v-circle
-                    :config="placeCrossControl2"
-                    @mousedown="placeControlAdjustLength($event, 1)"
-                    @mouseenter="controlHover"
-                    @mouseleave="controlLeave"
-                  />
-                  <v-circle
-                    :config="placeCrossControl3"
-                    @mousedown="placeControlAdjustLength($event, 2)"
-                    @mouseenter="controlHover"
-                    @mouseleave="controlLeave"
-                  />
-                  <v-circle
-                    :config="placeCrossControl4"
-                    @mousedown="placeControlAdjustLength($event, 3)"
-                    @mouseenter="controlHover"
-                    @mouseleave="controlLeave"
-                  />
-                  <v-group
-                    :config="groupPlaceCrossControl"
-                    @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
-                    @mouseenter="controlHover"
-                    @mouseleave="controlLeave"
-                  >
-                    <v-circle :config="rotateControlCircle" />
-                    <v-image :config="rotateControlImg" />
+                  <v-group :config="groupControlIconConfig" @dragmove="controlSkillIconDrag">
+                    <v-circle :config="controlStrokeConfig" />
+                    <v-image :config="controlImgConfig" />
                   </v-group>
                 </v-group>
-                <v-group :config="{ name: 'groupPlaceIcon' }">
-                  <v-circle :config="placeIconCircleCfg" />
-                  <v-image :config="placeImgCfg" />
+                <!-- controlStraight型-->
+                <v-group :config="{ name: 'groupControlStraight' }" v-if="skillType == 'controlStraight'">
+                  <v-line :config="controlStraightLineConfig" />
+                  <v-circle
+                    v-for="circle in controlAnchorList"
+                    :config="circle"
+                    @dragmove="controlAnchorDrag(circle.name)"
+                    @contextmenu="rightMenu(circle.name, $event)"
+                  />
+                  <v-group :config="groupControlIconConfig" @dragmove="controlSkillIconDrag">
+                    <v-circle :config="controlStrokeConfig" />
+                    <v-image :config="controlImgConfig" />
+                  </v-group>
                 </v-group>
-              </v-group>
-              <!-- others型 -->
-              <v-group :config="{ name: 'groupOthers', x: 500, y: 500, draggable: true }" v-if="skillType == 'others'">
-                <v-circle :config="othersCircleCfg" />
-                <v-image :config="othersImgCfg" />
-              </v-group>
-              <!-- doubleLine型 -->
-              <v-group :config="{ name: 'groupDoubleLine', x: 500, y: 500, draggable: true }" v-if="skillType == 'doubleLine'">
-                <v-group :config="{ name: 'doubleLineGroup' }">
-                  <v-rect :config="doubleLine1" />
-                  <v-rect :config="doubleLine2" />
+                <!-- circle型 -->
+                <v-group :config="{ name: 'groupCircle', x: 300, y: 400, draggable: true }" v-if="skillType == 'circle'">
+                  <v-circle :config="circleStrokeConfig" v-if="!skillIconVisible" />
+                  <v-circle :config="circleShadeConfig" v-if="!skillIconVisible" />
+                  <v-image :config="circleImgConfig" v-if="skillIconVisible" />
+                  <v-circle :config="circleCenterConfig" v-if="!skillIconVisible" />
+                </v-group>
+                <!-- place型 -->
+                <!-- NOTE placeType从v-for中读取 -->
+                <v-group :config="{ name: 'groupPlace', x: 500, y: 500, draggable: true }" v-if="skillType == 'place'">
+                  <v-group :config="{ name: 'groupPlaceRect' }" v-if="placeType == 'rect'">
+                    <v-rect :config="placeRectCfg" />
+                    <v-group
+                      :config="groupPlaceRectRotateControl"
+                      @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
+                      @mouseenter="controlHover"
+                      @mouseleave="controlLeave"
+                    >
+                      <v-circle :config="rotateControlCircle" />
+                      <v-image :config="rotateControlImg" />
+                    </v-group>
+                  </v-group>
+                  <v-group :config="{ name: 'groupPlaceCircle' }" v-if="placeType == 'circle'">
+                    <v-circle :config="placeCircleCfg" />
+                  </v-group>
+                  <v-group :config="{ name: 'groupPlaceSector' }" v-if="placeType == 'sector'">
+                    <v-wedge :config="placeSectorWedge" />
+                    <v-path :config="placeSectorPath" />
+                    <v-group
+                      :config="groupPlaceSectorRotateControl"
+                      @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
+                      @mouseenter="controlHover"
+                      @mouseleave="controlLeave"
+                    >
+                      <v-circle :config="rotateControlCircle" />
+                      <v-image :config="rotateControlImg" />
+                    </v-group>
+                  </v-group>
+                  <v-group :config="{ name: 'groupPlaceStraight' }" v-if="placeType == 'straight'">
+                    <v-line :config="placeStraightLine" />
+                    <v-circle :config="placeStraightStartControl" @mousedown="placeStriaghtControlMove($event, 0)" />
+                    <v-circle :config="placeStraightEndControl" @mousedown="placeStriaghtControlMove($event, 1)" />
+                  </v-group>
+                  <v-group :config="{ name: 'groupPlaceCross' }" v-if="placeType == 'cross'">
+                    <v-line :config="placeCrossLine1" />
+                    <v-line :config="placeCrossLine2" />
+                    <v-circle
+                      :config="placeCrossControl1"
+                      @mousedown="placeControlAdjustLength($event, 0)"
+                      @mouseenter="controlHover"
+                      @mouseleave="controlLeave"
+                    />
+                    <v-circle
+                      :config="placeCrossControl2"
+                      @mousedown="placeControlAdjustLength($event, 1)"
+                      @mouseenter="controlHover"
+                      @mouseleave="controlLeave"
+                    />
+                    <v-circle
+                      :config="placeCrossControl3"
+                      @mousedown="placeControlAdjustLength($event, 2)"
+                      @mouseenter="controlHover"
+                      @mouseleave="controlLeave"
+                    />
+                    <v-circle
+                      :config="placeCrossControl4"
+                      @mousedown="placeControlAdjustLength($event, 3)"
+                      @mouseenter="controlHover"
+                      @mouseleave="controlLeave"
+                    />
+                    <v-group
+                      :config="groupPlaceCrossControl"
+                      @mousedown="ControlRotate($event, stageRef, '.groupPlace')"
+                      @mouseenter="controlHover"
+                      @mouseleave="controlLeave"
+                    >
+                      <v-circle :config="rotateControlCircle" />
+                      <v-image :config="rotateControlImg" />
+                    </v-group>
+                  </v-group>
                   <v-group :config="{ name: 'groupPlaceIcon' }">
                     <v-circle :config="placeIconCircleCfg" />
                     <v-image :config="placeImgCfg" />
                   </v-group>
                 </v-group>
-                <v-circle :config="doubleLineControlCfg" @mousedown="dragDoubleLine" />
+                <!-- others型 -->
+                <v-group :config="{ name: 'groupOthers', x: 500, y: 500, draggable: true }" v-if="skillType == 'others'">
+                  <v-circle :config="othersCircleCfg" />
+                  <v-image :config="othersImgCfg" />
+                </v-group>
+                <!-- doubleLine型 -->
+                <v-group :config="{ name: 'groupDoubleLine', x: 500, y: 500, draggable: true }" v-if="skillType == 'doubleLine'">
+                  <v-group :config="{ name: 'doubleLineGroup' }">
+                    <v-rect :config="doubleLine1" />
+                    <v-rect :config="doubleLine2" />
+                    <v-group :config="{ name: 'groupPlaceIcon' }">
+                      <v-circle :config="placeIconCircleCfg" />
+                      <v-image :config="placeImgCfg" />
+                    </v-group>
+                  </v-group>
+                  <v-circle :config="doubleLineControlCfg" @mousedown="dragDoubleLine" />
+                </v-group>
               </v-group>
-            </v-group>
+            </div>
+
             <!-- 右键菜单 -->
             <div
               v-if="editMenuVisible"
@@ -1459,13 +1552,22 @@ const agentSelect = (label) => {
         <el-col class="lineup-dialog-main" :span="18">
           <el-tabs v-model="activeName" default-value="image" type="border-card">
             <el-tab-pane label="图片" name="image" style="min-height: 500px">
-              <el-image
+              <el-tooltip
+                :content="picture.tips"
+                :visible="picture.tips != '' && currentTooltip == picture.url"
+                placement="right"
                 v-for="(picture, index) in dialogContent.pictureList"
-                :src="picture.url"
-                fit="cover"
                 :key="index"
-                @click="showLineUpPreview(index)"
-              ></el-image>
+                effect="customized"
+              >
+                <el-image
+                  :src="picture.url"
+                  fit="cover"
+                  @click="showLineUpPreview(index)"
+                  @mouseenter="currentTooltip = picture.url"
+                  @mouseleave="currentTooltip = ''"
+                ></el-image>
+              </el-tooltip>
               <el-image-viewer
                 v-if="isLineUpPreview"
                 :zoom-rate="1.2"
@@ -1543,14 +1645,14 @@ const agentSelect = (label) => {
           <br />
           <!-- NOTE 图标与文字平齐，el-icon和iconify相同大小 -->
           <div class="flex-center">
-            <div class="flex-center default-text" v-if="!isCollect" @click="isCollect = !isCollect">
+            <div class="flex-center default-text" v-if="!isCollect" @click="collectClick">
               <el-icon size="24">
                 <Star />
               </el-icon>
               &nbsp;&nbsp;
               <span>20</span>
             </div>
-            <div class="flex-center" style="font-size: 16px; color: #f2688f" v-else @click="isCollect = !isCollect">
+            <div class="flex-center" style="font-size: 16px; color: #f2688f" v-else @click="collectClick">
               <el-icon size="24">
                 <StarFilled />
               </el-icon>
@@ -1570,16 +1672,15 @@ const agentSelect = (label) => {
           </div>
           <br />
           <div>
-            <p class="label-text" style="margin-top: 5px; margin-bottom: 5px">创建时间：2025-3-15 23:11:01</p>
-            <p class="label-text" style="margin-top: 5px; margin-bottom: 5px">更新时间：2026-3-18 01:11:01</p>
+            <p class="label-text" style="margin-top: 5px; margin-bottom: 5px">更新时间：{{ dialogContent.updateTime }}</p>
             <p class="label-text" style="margin-top: 5px; margin-bottom: 5px">
               来源：https://www.bilibili.com/video/BV1vRwYzrE9slabel-textlabel-textlabel-textlabel-textlabel-textlabel-text
             </p>
           </div>
-          <div class="comment-input">
+          <!-- <div class="comment-input">
             <img src="../../assets/avatar.jpg" style="width: 40px; border-radius: 50%" />
             <el-input v-model="commentInput" maxlength="40" show-word-limit word-limit-position="outside" type="textarea"></el-input>
-          </div>
+          </div> -->
         </el-col>
       </el-row>
     </el-dialog>
@@ -1605,7 +1706,7 @@ const agentSelect = (label) => {
   box-sizing: border-box;
   border-right: 1px solid #363636;
   background-color: #1a1a1a;
-  // box-shadow: 1px 0px 1px 0px rgba(0, 0, 0, 0.5);
+  position: relative;
 
   .row {
     display: flex;
@@ -1686,6 +1787,13 @@ const agentSelect = (label) => {
     font-size: 20px;
     // --el-button-bg-color: #363636;
     --el-button-border-color: rgba(0, 0, 0, 0);
+  }
+
+  .icp {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 10px;
   }
 }
 .map-container {
@@ -1842,6 +1950,39 @@ const agentSelect = (label) => {
   }
 }
 
+.camp-select {
+  // .el-radio-button__inner {
+  //   color: #fff;
+  //   background-color: #363636;
+  //   // border-radius: 4px !important;
+  // }
+
+  // .all {
+  //   .el-radio-button__inner:hover {
+  //     color: #686767;
+  //   }
+  // }
+
+  // .t {
+  //   // margin: 0 4px;
+  //   --el-radio-button-checked-text-color: #ff4655;
+  //   .el-radio-button__inner:hover {
+  //     color: #ff4655;
+  //   }
+  // }
+
+  // .ct {
+  //   --el-radio-button-checked-text-color: #66e5da;
+  //   .el-radio-button__inner:hover {
+  //     color: #66e5da;
+  //   }
+  // }
+
+  .el-radio-button__inner {
+    width: 86px;
+  }
+}
+
 .map-select-dropdown {
   --el-popper-bg-color-light: #1a1a1a !important;
   --el-border-color-light: rgba(0, 0, 0, 0);
@@ -1910,5 +2051,18 @@ const agentSelect = (label) => {
       box-shadow: none;
     }
   }
+}
+
+.el-popper.is-customized {
+  /* Set padding to ensure the height is 32px */
+  padding: 6px 12px;
+  // background: linear-gradient(90deg, rgb(159, 229, 151), rgb(204, 229, 129));
+  background: linear-gradient(90deg, rgb(255, 165, 0), rgb(204, 229, 129));
+}
+
+.el-popper.is-customized .el-popper__arrow::before {
+  // background: linear-gradient(45deg, #b2e68d, #bce689);
+  background: rgb(255, 165, 0);
+  right: 0;
 }
 </style>

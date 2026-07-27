@@ -29,6 +29,7 @@ const settingStore = useSettingBarStore()
 const { attackBarrierArray, defendBarrierArray, textArray, skillBallArray } = storeToRefs(preloadInfoStore)
 const { mapValue, agentValue, agentLabel, skillIndex } = storeToRefs(selectStore)
 const { pointNameVisible, skillBallVisible, lightCurtainVisible } = storeToRefs(settingStore)
+
 const preloadAgentInfo = async () => {
   const result = await getAgentInfo()
   if (result.code == 0) {
@@ -139,6 +140,7 @@ router.beforeEach(async (to, from, next) => {
     await preloadSkillData()
     await preloadMapInfo()
   }
+  console.log('app')
   next()
 })
 </script>

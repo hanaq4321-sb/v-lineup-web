@@ -32,7 +32,6 @@ function mousedown() {
   click = true
 }
 function mouseup(circle, e) {
-  console.log(1)
   click = false
   if (hover) return // 鼠标松开后仍在点内，保持选中颜色
   circle.to({ duration: 0.1, fill: 'rgba(255,255,255,0.8)' })
