@@ -4,7 +4,15 @@ import 'xgplayer/dist/index.min.css'
 import { useFFmpeg } from '@/utils/ffmpeg'
 import { usePreloadInfoStore } from '@/store/preload-info'
 import { getSkillContentService, updateSkillContentVideoService } from '@/api/skill-content'
-import { getThrowSkillService, getThrowSkillCollectService, getThrowSkillCountsService } from '@/api/skill-type'
+// 获取技能信息service
+import {
+  getThrowSkillService,
+  getThrowSkillCollectService,
+  getThrowSkillCountsService,
+  getLineSkillService,
+  getLineSkillCollectService,
+  getLineSkillCountsService,
+} from '@/api/skill-type'
 import { ifCollectService, addCollectService, deleteCollectService } from '@/api/collect-like'
 import { nextTick, ref, onBeforeMount, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
@@ -131,8 +139,8 @@ const hover = ref(null)
 onBeforeMount(async () => {
   // NOTE 要先use(pinia)后才能使用，而正常导入js文件优先级非常高，会先于app.use。故这里使用延迟动态导入
   // NOTE 钩子函数中await并阻碍整体的渲染，只会影响钩子函数内部的顺序，故使用v-if等待加载完成后再渲染
-  const { throwHover, throwUnHover } = await import('@/styles/js/skill-hover')
-  hover.value = { throwHover, throwUnHover }
+  const { throwHover, throwUnHover, lineHover, lineUnHover } = await import('@/styles/js/skill-hover')
+  hover.value = { throwHover, throwUnHover, lineHover, lineUnHover }
 })
 onMounted(async () => {
   observer.observe(mapContainerRef.value)
@@ -149,92 +157,15 @@ onBeforeUnmount(() => {
 
 //#region 更改图片
 
-const [skillImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)
-const [agentImg] = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)
-const [skillDetailImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_3_detail.png`)
+import { toRaw } from '@vue/reactivity'
+let skillImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)[0]
+let agentImg = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)[0]
+let skillDetailImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3_detail.png`)[0]
 const changeImg = (index) => {
-  const type = skillType.value
-  let [skillImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}.webp`)
-  let [agentImg] = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)
-  let [skillDetailImg] = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}_detail.png`)
-  switch (type) {
-    case 'throw':
-      throwSkillIconConfig.value.image = skillImg
-      throwAgentIconConfig.value.image = agentImg
-      break
-    case 'throwGround':
-      throwGroundIconCfg.value.image = skillImg
-      throwGroundAgentCfg.value.image = agentImg
-      throwGroundRealCfg.value.image = skillDetailImg
-      break
-    case 'control':
-      controlImgConfig.value.image = skillImg
-      break
-    case 'controlStraight':
-      controlImgConfig.value.image = skillImg
-      break
-    case 'circle':
-      circleImgConfig.value.image = skillDetailImg
-    case 'place':
-      placeImgCfg.value.image = skillImg
-      break
-    default:
-      break
-  }
+  skillImg = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}.webp`)[0]
+  agentImg = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)[0]
+  skillDetailImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3_detail.png`)[0]
   // TODO 切换英雄重置技能选择
-}
-//#endregion
-
-//#region 抛掷技能
-const groupThrowIconConfig = ref({
-  x: 500,
-  y: 300,
-  draggable: true,
-  name: 'groupThrowIcon',
-})
-const throwSkillRangeConfig = ref({
-  // 接入数据库数据
-  radius: 30 * 7,
-  fill: `rgb(` + agentDetail.value.color + `,0.2)`,
-  stroke: 'rgb(108,125,255,0.9)',
-  strokeWidth: 4,
-  name: 'skillThrowRange',
-})
-const throwSkillIconConfig = ref({
-  offsetX: 15,
-  offsetY: 15,
-  width: 30,
-  height: 30,
-  cornerRadius: 15,
-  image: skillImg,
-})
-const throwSkillCenterConfig = ref({
-  radius: 6,
-  fill: '#fff',
-})
-const throwAgentIconConfig = ref({
-  x: 500,
-  y: 700,
-  width: 38,
-  height: 38,
-  offsetX: 19,
-  offsetY: 19,
-  cornerRadius: 5,
-  fill: 'rgb(108,125,255,0.9)',
-  image: agentImg,
-  draggable: true,
-  name: 'skillThrowAgentIcon',
-})
-const throwLineConfig = ref({
-  stroke: 'rgb(108,125,255,0.9)',
-  strokeWidth: 4,
-  lineCap: 'round',
-  name: 'skillThrowLine',
-  points: [500, 300, 500, 700],
-})
-let skillRadius = 0
-if (skillRadius == -1) {
-  throwSkillRangeConfig.value = { fill: 'rgba(0,0,0,0.8)', radius: '18', strokeWidth: 0 }
 }
 //#endregion
 
@@ -347,16 +278,6 @@ const polygonConfig = ref({
 })
 //#endregion
 
-//#region 直线技能
-const lineRectCfg = ref({
-  width: 280,
-  height: 140,
-  fill: 'rgba(21, 37, 52,0.7)',
-  offsetY: 70,
-})
-const groupLineRotateControl = ref({
-  x: 280 + 20,
-})
 //#endregion
 
 //#region 控制技能
@@ -467,6 +388,7 @@ const placeIconCircleCfg = ref({
   stroke: '#fff',
   strokeWidth: 1,
   fill: '#000',
+  id: 'iconCircle',
 })
 const placeImgCfg = ref({
   width: 30,
@@ -798,6 +720,8 @@ const commentInput = ref()
 const isCollect = ref(false),
   isLike = ref(false)
 const activeName = ref()
+const extraName = ref(),
+  extraVisible = ref(false)
 const showContent = async (e) => {
   const groupNode = e.currentTarget
   uuid = groupNode.id()
@@ -809,6 +733,7 @@ const showContent = async (e) => {
       description: content.description,
       extra: content.extra,
       like: content.like,
+      collect: content.collect,
       pictureList: content.picture,
       previewList: [],
       posture: content.posture,
@@ -827,6 +752,10 @@ const showContent = async (e) => {
   } else {
     console.log(result.msg)
     ElMessage.error('获取技能内容失败')
+  }
+  if (['雷击箭', '寻敌箭'].indexOf(skillDetail.value.skillName) != -1) {
+    extraName.value = '蓄力反弹'
+    extraVisible.value = true
   }
 }
 const isAlreadyCollect = async () => {
@@ -851,6 +780,7 @@ const collectClick = async () => {
     if (result.code == 0) {
       ElMessage.success('已取消收藏')
       isCollect.value = !isCollect.value
+      dialogContent.value.collect -= 1
     } else {
       console.log(result.msg)
       ElMessage.error('取消收藏失败')
@@ -860,11 +790,18 @@ const collectClick = async () => {
     if (result.code == 0) {
       ElMessage.success('已收藏')
       isCollect.value = !isCollect.value
+      dialogContent.value.collect += 1
     } else {
       console.log(result.msg)
       ElMessage.error('收藏失败')
     }
   }
+}
+const likeClick = async () => {
+  const { loginDetection } = await import('@/styles/js/public')
+  const isLogin = loginDetection()
+  if (!isLogin) return
+  isLike.value = !isLike.value
 }
 // 视频
 let player = null
@@ -987,7 +924,6 @@ const showCollect = async () => {
     getSkillLocation()
   }
 }
-
 //#endregion
 
 //#region 地图和技能选择
@@ -1080,6 +1016,9 @@ const getSkillLocation = async () => {
       result = await getThrowSkillService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
       counts = await getThrowSkillCountsService(mapValue.value, agentValue.value, lastIndex)
       break
+    case 'line':
+      result = await getLineSkillService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      counts = await getLineSkillCountsService(mapValue.value, agentValue.value, lastIndex)
     default:
       break
   }
@@ -1259,7 +1198,13 @@ const agentSelect = (label) => {
                       v-if="settingStore.skillIconVisible"
                     />
                     <!-- 技能中心点 -->
-                    <v-circle :config="throwSkillCenterConfig" v-else />
+                    <v-circle
+                      :config="{
+                        radius: 6,
+                        fill: '#fff',
+                      }"
+                      v-else
+                    />
                   </v-group>
                   <!-- 特工图标 -->
                   <v-image
@@ -1281,7 +1226,6 @@ const agentSelect = (label) => {
                   />
                 </v-group>
                 <!-- </template> -->
-
                 <!-- throwGround型 -->
                 <v-group :config="{ name: 'groupThrowGroud' }" v-if="skillType == 'throwGround'">
                   <v-line :config="throwGroundLineCfg" />
@@ -1321,20 +1265,35 @@ const agentSelect = (label) => {
                   />
                 </v-group>
                 <!-- line型 -->
-                <v-group :config="{ name: 'groupLine', x: 500, y: 500, draggable: true }" v-if="skillType == 'line'">
-                  <v-rect :config="lineRectCfg" />
-                  <v-group
-                    :config="groupLineRotateControl"
-                    @mousedown="ControlRotate($event, stageRef, '.groupLine')"
-                    @mouseenter="controlHover"
-                    @mouseleave="controlLeave"
-                  >
-                    <v-circle :config="rotateControlCircle" />
-                    <v-image :config="rotateControlImg" />
-                  </v-group>
+                <v-group
+                  v-for="skill in skillLocationList"
+                  :config="{ name: 'groupLine', x: skill.groupX, y: skill.groupY, rotation: skill.angle, id: skill.uuid }"
+                  @mouseenter="hover.lineHover"
+                  @mouseleave="hover.lineUnHover"
+                  @mousedown="showContent"
+                  v-if="skillType == 'line'"
+                >
+                  <v-rect
+                    :config="{
+                      width: skillDetail.width * 7,
+                      height: skillDetail.height * 7,
+                      fill: `rgba(${agentDetail.color},0.7)`,
+                      offsetY: (skillDetail.height * 7) / 2,
+                      id: 'rect',
+                    }"
+                  />
                   <v-group :config="{ name: 'groupLineIcon' }">
                     <v-circle :config="placeIconCircleCfg" />
-                    <v-image :config="placeImgCfg" />
+                    <v-image
+                      :config="{
+                        width: 30,
+                        height: 30,
+                        offset: { x: 15, y: 15 },
+                        cornerRadius: 15,
+                        scale: { x: 0.8, y: 0.8 },
+                        image: skillImg,
+                      }"
+                    />
                   </v-group>
                 </v-group>
                 <!-- control型 -->
@@ -1472,7 +1431,6 @@ const agentSelect = (label) => {
                 </v-group>
               </v-group>
             </div>
-
             <!-- 右键菜单 -->
             <div
               v-if="editMenuVisible"
@@ -1629,9 +1587,9 @@ const agentSelect = (label) => {
                 <span class="describe">{{ dialogContent.posture }}</span>
               </td>
             </tr>
-            <tr>
+            <tr v-if="extraVisible">
               <td>
-                <span class="label">蓄力反弹</span>
+                <span class="label">{{ extraName }}</span>
                 <span class="describe">{{ dialogContent.extra }} </span>
               </td>
             </tr>
@@ -1650,32 +1608,33 @@ const agentSelect = (label) => {
                 <Star />
               </el-icon>
               &nbsp;&nbsp;
-              <span>20</span>
+              <span>{{ dialogContent.collect }}</span>
             </div>
             <div class="flex-center" style="font-size: 16px; color: #f2688f" v-else @click="collectClick">
               <el-icon size="24">
                 <StarFilled />
               </el-icon>
               &nbsp;&nbsp;
-              <span>20</span>
+              <span>{{ dialogContent.collect }}</span>
             </div>
-            <div class="flex-center default-text" v-if="!isLike" @click="isLike = !isLike">
+            <div class="flex-center default-text" v-if="!isLike" @click="likeClick">
               <Like style="width: 24px; height: 24px; font-size: 24px; margin-left: 30px" />
               &nbsp;&nbsp;
-              <span>20</span>
+              <span>{{ dialogContent.like }}</span>
             </div>
-            <div class="flex-center" style="font-size: 16px; color: #27c6ff" v-else @click="isLike = !isLike">
+            <div class="flex-center" style="font-size: 16px; color: #27c6ff" v-else @click="likeClick">
               <LikeFilled style="width: 24px; height: 24px; font-size: 24px; margin-left: 30px" />
               &nbsp;&nbsp;
-              <span>20</span>
+              <span>{{ dialogContent.like }}</span>
             </div>
           </div>
           <br />
           <div>
             <p class="label-text" style="margin-top: 5px; margin-bottom: 5px">更新时间：{{ dialogContent.updateTime }}</p>
-            <p class="label-text" style="margin-top: 5px; margin-bottom: 5px">
+            <!-- TODO 确认是否需要来源 -->
+            <!-- <p class="label-text" style="margin-top: 5px; margin-bottom: 5px">
               来源：https://www.bilibili.com/video/BV1vRwYzrE9slabel-textlabel-textlabel-textlabel-textlabel-textlabel-text
-            </p>
+            </p> -->
           </div>
           <!-- <div class="comment-input">
             <img src="../../assets/avatar.jpg" style="width: 40px; border-radius: 50%" />

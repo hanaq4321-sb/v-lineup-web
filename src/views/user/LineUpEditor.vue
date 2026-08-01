@@ -4,7 +4,8 @@ import 'xgplayer/dist/index.min.css'
 import { useFFmpeg } from '@/utils/ffmpeg'
 import { usePreloadInfoStore } from '@/store/preload-info'
 import { saveSkillContent } from '@/api/skill-content'
-import { saveThrowSkill } from '@/api/skill-type'
+// 技能位置数据service
+import { saveThrowSkill, saveLineSkill } from '@/api/skill-type'
 import { nextTick, ref, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
 import {
@@ -1042,26 +1043,44 @@ const submitForm = async () => {
       tips: e.tips != null ? e.tips : '',
     })
   })
-  // BUG EXTRA无法写入
   let extra_ = '无'
-  if (['雷击箭', '寻敌箭'].indexOf(skillDetail.skillName) != -1) {
-    extra_ = form.strength + '力度' + form.rebound + '反弹'
+  if (['雷击箭', '寻敌箭'].indexOf(skillDetail.value.skillName) != -1) {
+    extra_ = form.strength + '蓄力' + form.rebound + '反弹'
   }
   const stage = stageRef.value.getNode()
+  let saveLocationData = null
   let skillPosition
-  if (skillType.value == 'throw') {
-    const skillIcon = stage.findOne('.groupThrowIcon')
-    const agentIcon = stage.findOne('.skillThrowAgentIcon')
-    skillPosition = {
-      uuid: uuid,
-      agentId: agentValue.value,
-      mapId: mapValue.value,
-      skillIndex: skillIndex.value,
-      skillIconX: skillIcon.position().x,
-      skillIconY: skillIcon.position().y,
-      agentIconX: agentIcon.position().x,
-      agentIconY: agentIcon.position().y,
-    }
+  switch (skillType.value) {
+    case 'throw':
+      const skillIcon = stage.findOne('.groupThrowIcon')
+      const agentIcon = stage.findOne('.skillThrowAgentIcon')
+      skillPosition = {
+        uuid: uuid,
+        agentId: agentValue.value,
+        mapId: mapValue.value,
+        skillIndex: skillIndex.value,
+        skillIconX: skillIcon.position().x,
+        skillIconY: skillIcon.position().y,
+        agentIconX: agentIcon.position().x,
+        agentIconY: agentIcon.position().y,
+      }
+      saveLocationData = saveThrowSkill
+      break
+    case 'line':
+      const groupLine = stage.findOne('.groupLine')
+      skillPosition = {
+        uuid: uuid,
+        agentId: agentValue.value,
+        mapId: mapValue.value,
+        skillIndex: skillIndex.value,
+        groupX: groupLine.position().x,
+        groupY: groupLine.position().y,
+        angle: groupLine.rotation(),
+      }
+      saveLocationData = saveLineSkill
+      break
+    default:
+      break
   }
   const skillContent = {
     uuid: uuid,
@@ -1091,7 +1110,7 @@ const submitForm = async () => {
     console.log(file)
   }
   // 并行执行
-  const [result1, result2] = await Promise.all([saveSkillContent(formData), saveThrowSkill(skillPosition)])
+  const [result1, result2] = await Promise.all([saveSkillContent(formData), saveLocationData(skillPosition)])
   if (result1.code != 0 || result2.code != 0) {
     ElMessage.error('上传失败')
   } else {
