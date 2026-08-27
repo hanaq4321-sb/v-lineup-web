@@ -12,6 +12,12 @@ import {
   getLineSkillService,
   getLineSkillCollectService,
   getLineSkillCountsService,
+  getThrowGroundSkillService,
+  getThrowGroundSkillCollectService,
+  getThrowGroundSkillCountsService,
+  getControlSkillService,
+  getControlSkillCollectService,
+  getControlSkillCountsService,
 } from '@/api/skill-type'
 import { ifCollectService, addCollectService, deleteCollectService } from '@/api/collect-like'
 import { nextTick, ref, onBeforeMount, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
@@ -48,7 +54,7 @@ import {
   controlHover,
   controlLeave,
 } from '@/styles/js/skill-editor'
-import { mapDraggable, controlMapDraggable, handleWheel, mapZoomButton, mapRotate, resetMap } from '@/styles/js/map-adjust'
+import { mapDraggable, controlMapDraggable, handleWheel, mapZoomButton, mapRotate, resetMap, sideRotate } from '@/styles/js/map-adjust'
 import RotateRight from '~icons/ix/rotate-90-right'
 import RotateLeft from '~icons/ix/rotate-90-left'
 import settingBar from './public/settingBar.vue'
@@ -64,7 +70,7 @@ const settingStore = useSettingBarStore()
 const tokenStokre = useTokenStore()
 const preloadInfo = usePreloadInfoStore()
 const { mapValue, agentValue, agentLabel, skillIndex } = storeToRefs(selectStore)
-const { pointNameVisible, skillBallVisible, lightCurtainVisible } = storeToRefs(settingStore)
+const { pointNameVisible, skillBallVisible, lightCurtainVisible, skillIconVisible } = storeToRefs(settingStore)
 const { agentDetail, skillDetail, attackBarrierArray, defendBarrierArray, textArray, skillBallArray } = storeToRefs(preloadInfo)
 const { mapInfo, skillData, agentInfo } = preloadInfo
 const skillSelectIconList = ref([
@@ -73,7 +79,6 @@ const skillSelectIconList = ref([
   `agent/${agentValue.value}/${agentValue.value}_3.webp`,
   `agent/${agentValue.value}/${agentValue.value}_4.webp`,
 ])
-const skillSelectAgent = ref(`agent/${agentValue.value}/${agentValue.value}.webp`)
 const skillType = ref('controlStraight')
 //#endregion
 
@@ -139,11 +144,20 @@ const hover = ref(null)
 onBeforeMount(async () => {
   // NOTE 要先use(pinia)后才能使用，而正常导入js文件优先级非常高，会先于app.use。故这里使用延迟动态导入
   // NOTE 钩子函数中await并阻碍整体的渲染，只会影响钩子函数内部的顺序，故使用v-if等待加载完成后再渲染
-  const { throwHover, throwUnHover, lineHover, lineUnHover } = await import('@/styles/js/skill-hover')
-  hover.value = { throwHover, throwUnHover, lineHover, lineUnHover }
+  const { throwHover, throwUnHover, lineHover, lineUnHover, throwGroundHover, throwGroundUnHover, controlHover, controlUnHover } =
+    await import('@/styles/js/skill-hover')
+  hover.value = { throwHover, throwUnHover, lineHover, lineUnHover, throwGroundHover, throwGroundUnHover, controlHover, controlUnHover }
 })
 onMounted(async () => {
   observer.observe(mapContainerRef.value)
+  const stage = stageRef.value.getNode()
+  const mapPoints = stage.find('#point')
+  // TODO 统一适用
+  mapPoints.forEach((e) => {
+    // 文字以中心为原点，并修正原点改变后的偏移量
+    e.position({ x: e.position().x + e.width() / 2, y: e.position().y + e.height() / 2 })
+    e.offset({ x: e.width() / 2, y: e.height() / 2 })
+  })
 })
 onBeforeUnmount(() => {
   // NOTE 在组件销毁时应该销毁监听器，否则页面重新加载时会导致上一个监听器获取不到还未加载完的界面
@@ -156,7 +170,6 @@ onBeforeUnmount(() => {
 //#region 技能绘制
 
 //#region 更改图片
-
 import { toRaw } from '@vue/reactivity'
 let skillImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)[0]
 let agentImg = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)[0]
@@ -164,18 +177,12 @@ let skillDetailImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3_d
 const changeImg = (index) => {
   skillImg = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}.webp`)[0]
   agentImg = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)[0]
-  skillDetailImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3_detail.png`)[0]
+  skillDetailImg = useImage(`agent/${agentValue.value}/${agentValue.value}_${index}_detail.png`)[0]
   // TODO 切换英雄重置技能选择
 }
 //#endregion
 
 //#region 抛掷落地技能
-const throwGroundLineCfg = ref({
-  points: [500, 300, 500, 700],
-  stroke: '#000',
-  strokeWidth: 4,
-  name: 'throwGroundLine',
-})
 const throwGroundIconCfg = ref({
   width: 46.06 * 2,
   height: 46.06 * 2,
@@ -687,7 +694,6 @@ const dragDoubleLine = (el) => {
 //#endregion
 
 //#region 设置栏
-const skillIconVisible = ref(false)
 const controlAnchorVisibleClick = () => {
   const stage = stageRef.value.getNode()
   const type = skillType.value.charAt(0).toUpperCase() + skillType.value.slice(1, skillType.value.length)
@@ -753,6 +759,8 @@ const showContent = async (e) => {
     console.log(result.msg)
     ElMessage.error('获取技能内容失败')
   }
+  extraVisible.value = false
+  extraName.value = null
   if (['雷击箭', '寻敌箭'].indexOf(skillDetail.value.skillName) != -1) {
     extraName.value = '蓄力反弹'
     extraVisible.value = true
@@ -944,6 +952,7 @@ let lastIndex = -1,
 const skillLocationList = ref([])
 const skillCounts = ref(0)
 const skillClick = async (index) => {
+  // 防止重复选中
   if (index == lastIndex && agentValue.value == lastAgent) return
   lastIndex = index
   lastAgent = agentValue.value
@@ -990,7 +999,11 @@ const skillClick = async (index) => {
   changeImg(index)
   skillIndex.value = index
   console.log('type:' + skillType.value, 'map:' + mapValue.value, 'agent:' + agentValue.value, 'index:' + index)
+  // 获取位置信息
   getSkillLocation()
+  ifSwitchCollect.value = false
+  // TODO 考虑在前端缓存还是后端
+  skillLocationList.value = null
   // 选中提示
   ifSkillIconDetail.value.forEach((item, index, array) => {
     array[index] = false
@@ -1001,6 +1014,17 @@ const skillClick = async (index) => {
 // 阵营选择
 const sideSelect = ref('所有')
 const sideSelectChange = () => {
+  switch (sideSelect.value) {
+    case '所有':
+      sideRotate(0, stageRef.value)
+      break
+    case '进攻方':
+      sideRotate(0, stageRef.value)
+      break
+    case '防守方':
+      sideRotate(180, stageRef.value)
+      break
+  }
   if (ifSwitchCollect.value) {
     getSkillCollectLocation()
   } else {
@@ -1016,13 +1040,21 @@ const getSkillLocation = async () => {
       result = await getThrowSkillService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
       counts = await getThrowSkillCountsService(mapValue.value, agentValue.value, lastIndex)
       break
+    case 'throwGround':
+      result = await getThrowGroundSkillService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      counts = await getThrowGroundSkillCountsService(mapValue.value, agentValue.value, lastIndex)
+      break
     case 'line':
       result = await getLineSkillService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
       counts = await getLineSkillCountsService(mapValue.value, agentValue.value, lastIndex)
+      break
+    case 'control':
+      result = await getControlSkillService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      counts = await getControlSkillCountsService(mapValue.value, agentValue.value, lastIndex)
+      break
     default:
       break
   }
-  console.log(result)
   if (result.code == 0 && counts.code == 0) {
     skillLocationList.value = result.data
     skillCounts.value = counts.data
@@ -1037,6 +1069,15 @@ const getSkillCollectLocation = async () => {
     case 'throw':
       result = await getThrowSkillCollectService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
       break
+    case 'throwGround':
+      result = await getThrowGroundSkillCollectService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      break
+    case 'line':
+      result = await getLineSkillCollectService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      break
+    case 'control':
+      result = await getControlSkillCollectService(mapValue.value, agentValue.value, lastIndex, sideSelect.value)
+      break
     default:
       break
   }
@@ -1050,6 +1091,7 @@ const getSkillCollectLocation = async () => {
 // 开局默认执行一次，传入用户选定的英雄技能，否则line无法重置
 skillClick(skillIndex.value)
 const agentSelect = (label) => {
+  // text
   agentLabel.value = label
   skillSelectIconList.value = [
     `agent/${agentValue.value}/${agentValue.value}_1.webp`,
@@ -1057,7 +1099,6 @@ const agentSelect = (label) => {
     `agent/${agentValue.value}/${agentValue.value}_3.webp`,
     `agent/${agentValue.value}/${agentValue.value}_4.webp`,
   ]
-  skillSelectAgent.value = `agent/${agentValue.value}/${agentValue.value}.webp`
   skillClick(skillIndex.value)
 }
 //#endregion
@@ -1092,9 +1133,9 @@ const agentSelect = (label) => {
       </div>
       <br />
       <div class="row">
-        <img class="agent-icon" :src="skillSelectAgent" />
+        <img class="agent-icon" :src="selectStore.currentAgent" />
         <span class="agent-name"
-          ><strong>{{ agentLabel }}</strong></span
+          ><strong>{{ agentDetail.agentName }}</strong></span
         >
       </div>
       <br />
@@ -1156,7 +1197,6 @@ const agentSelect = (label) => {
             <div v-if="hover">
               <v-group :config="skillGroupConfig">
                 <!-- throw型 -->
-                <!-- <template v-if="skillType == 'throw'"> -->
                 <v-group
                   :config="{ name: 'groupThrow', id: skill.uuid }"
                   v-for="skill in skillLocationList"
@@ -1193,18 +1233,7 @@ const agentSelect = (label) => {
                       }"
                     />
                     <!-- 技能图标 -->
-                    <v-image
-                      :config="{ offsetX: 14.5, offsetY: 14.5, width: 29, height: 29, cornerRadius: 14.5, image: skillImg }"
-                      v-if="settingStore.skillIconVisible"
-                    />
-                    <!-- 技能中心点 -->
-                    <v-circle
-                      :config="{
-                        radius: 6,
-                        fill: '#fff',
-                      }"
-                      v-else
-                    />
+                    <v-image :config="{ offsetX: 14.5, offsetY: 14.5, width: 29, height: 29, cornerRadius: 14.5, image: skillImg, id: 'r-img' }" />
                   </v-group>
                   <!-- 特工图标 -->
                   <v-image
@@ -1225,21 +1254,75 @@ const agentSelect = (label) => {
                     v-show="false"
                   />
                 </v-group>
-                <!-- </template> -->
                 <!-- throwGround型 -->
-                <v-group :config="{ name: 'groupThrowGroud' }" v-if="skillType == 'throwGround'">
-                  <v-line :config="throwGroundLineCfg" />
-                  <v-group
-                    :config="{ name: 'groupThrowGroudIcon', x: 500, y: 300, draggable: true }"
-                    @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
-                  >
-                    <v-circle :config="throwGroundCircleCfg" v-if="!skillIconVisible" />
-                    <v-image :config="throwGroundIconCfg" v-if="!skillIconVisible" />
-                    <v-image :config="throwGroundRealCfg" v-if="skillIconVisible" />
+                <v-group
+                  :config="{ name: 'groupThrowGround', id: skill.uuid }"
+                  v-for="skill in skillLocationList"
+                  :key="skill.uuid"
+                  @mouseenter="hover.throwGroundHover"
+                  @mouseleave="hover.throwGroundUnHover"
+                  @mousedown="showContent"
+                  v-if="skillType == 'throwGround'"
+                >
+                  <v-line
+                    :config="{
+                      points: [skill.agentIconX, skill.agentIconY, skill.skillIconX, skill.skillIconY],
+                      stroke: 'rgba(27, 144, 255,0.9)',
+                      strokeWidth: 3,
+                      name: 'throwGroundLine',
+                    }"
+                  />
+                  <v-group :config="{ name: 'groupThrowGroudIcon', x: skill.skillIconX, y: skill.skillIconY }">
+                    <v-circle
+                      :config="{
+                        radius: skillDetail.r * 7,
+                        // fill: 'rgba(27, 144, 255,0.2)',
+                        fill: 'rgba(0,0,0,0.2)',
+                        stroke: 'rgba(27, 144, 255,0.9)',
+                        strokeWidth: 3,
+                        name: 'throwGroundIcon',
+                      }"
+                      v-if="skillIconVisible"
+                    />
+                    <v-image
+                      :config="{
+                        width: skillDetail.r * 7 * 2,
+                        height: skillDetail.r * 7 * 2,
+                        offset: { x: skillDetail.r * 7, y: skillDetail.r * 7 },
+                        cornerRadius: skillDetail.r * 7,
+                        scale: { x: 0.6, y: 0.6 },
+                        id: 'r-img',
+                        image: skillImg,
+                      }"
+                      v-if="skillIconVisible"
+                    />
+                    <v-image
+                      :config="{
+                        width: skillDetail.r * 7 * 2,
+                        height: skillDetail.r * 7 * 2,
+                        offset: { x: skillDetail.r * 7, y: skillDetail.r * 7 },
+                        cornerRadius: skillDetail.r * 7,
+                        opacity: 0.8,
+                        id: 'r-img',
+                        name: 'throwGroundIcon',
+                        image: skillDetailImg,
+                      }"
+                      v-if="!skillIconVisible"
+                    />
                   </v-group>
                   <v-image
-                    :config="throwGroundAgentCfg"
-                    @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
+                    :config="{
+                      x: skill.agentIconX,
+                      y: skill.agentIconY,
+                      width: 36,
+                      height: 36,
+                      offset: { x: 18, y: 18 },
+                      fill: 'rgba(27, 144, 255,0.9)',
+                      cornerRadius: 5,
+                      image: agentImg,
+                      id: 'r-img',
+                      name: 'throwGroundAgent',
+                    }"
                   />
                 </v-group>
                 <!-- curve型 -->
@@ -1291,26 +1374,40 @@ const agentSelect = (label) => {
                         offset: { x: 15, y: 15 },
                         cornerRadius: 15,
                         scale: { x: 0.8, y: 0.8 },
+                        rotation: 90,
                         image: skillImg,
                       }"
                     />
                   </v-group>
                 </v-group>
                 <!-- control型 -->
-                <v-group :config="{ name: 'groupControl' }" v-if="skillType == 'control'">
+                <v-group
+                  v-for="skill in skillLocationList"
+                  :config="{ name: 'groupControl', id: skill.uuid }"
+                  @mouseenter="hover.controlHover"
+                  @mouseleave="hover.controlUnHover"
+                  @mousedown="showContent"
+                  v-if="skillType == 'control'"
+                >
                   <el-button type="success" @click="controlAnimaBuild">创建</el-button>
                   <el-button type="danger" @click="controlAnimaStart">启动</el-button>
                   <el-button type="info" @click="controlAnimaEnd">停止</el-button>
-                  <v-line :config="controlLineConfig" />
-                  <v-circle
-                    v-for="circle in controlAnchorList"
-                    :config="circle"
-                    @dragmove="controlAnchorDrag(circle.name)"
-                    @contextmenu="rightMenu(circle.name, $event)"
+                  <v-line
+                    :config="{ stroke: '#6c7dff', strokeWidth: 3, lineCap: 'round', tension: 0.4, name: 'skillControl', points: skill.pointList }"
                   />
-                  <v-group :config="groupControlIconConfig" @dragmove="controlSkillIconDrag">
-                    <v-circle :config="controlStrokeConfig" />
-                    <v-image :config="controlImgConfig" />
+                  <v-group :config="{ x: skill.skillIconX, y: skill.skillIconY, name: 'groupControlIcon' }" @dragmove="controlSkillIconDrag">
+                    <v-circle :config="{ radius: 15, fill: 'rgba(0,0,0,0.8)', stroke: '#23ffd0', strokeWidth: 2, name: 'skillControlStroke' }" />
+                    <v-image
+                      :config="{
+                        image: skillImg,
+                        width: 30,
+                        height: 30,
+                        offsetX: 15,
+                        offsetY: 15,
+                        scale: { x: 0.8, y: 0.8 },
+                        name: 'skillControlImg',
+                      }"
+                    />
                   </v-group>
                 </v-group>
                 <!-- controlStraight型-->
@@ -1597,6 +1694,12 @@ const agentSelect = (label) => {
               <td>
                 <span class="label">容错率</span>
                 <span class="describe">{{ dialogContent.tolerance }}</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <span class="label">阵营</span>
+                <span class="describe">{{ dialogContent.side }}</span>
               </td>
             </tr>
           </tbody>

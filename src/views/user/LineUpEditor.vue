@@ -5,7 +5,7 @@ import { useFFmpeg } from '@/utils/ffmpeg'
 import { usePreloadInfoStore } from '@/store/preload-info'
 import { saveSkillContent } from '@/api/skill-content'
 // 技能位置数据service
-import { saveThrowSkill, saveLineSkill } from '@/api/skill-type'
+import { saveThrowSkill, saveLineSkill, saveThrowGroundSkill, saveControlSkill } from '@/api/skill-type'
 import { nextTick, ref, onMounted, reactive, shallowReactive, onBeforeUnmount, computed, watch } from 'vue'
 import { useImage } from 'vue-konva'
 import {
@@ -292,7 +292,6 @@ const addNewControlAnchor = (e) => {
   }
   const stage = stageRef.value.getNode()
   const group = stage.findOne('.mapGroup')
-
   const line = stage.findOne(`${lineType}`)
   pointList.push(group.getRelativePointerPosition().x, group.getRelativePointerPosition().y)
   line.points(pointList)
@@ -506,6 +505,7 @@ const placeImgCfg = ref({
   cornerRadius: 15,
   scale: { x: 0.8, y: 0.8 },
   image: skillImg,
+  rotation: 90,
 })
 // 矩形
 const placeRectCfg = ref({
@@ -1051,7 +1051,7 @@ const submitForm = async () => {
   let saveLocationData = null
   let skillPosition
   switch (skillType.value) {
-    case 'throw':
+    case 'throw': {
       const skillIcon = stage.findOne('.groupThrowIcon')
       const agentIcon = stage.findOne('.skillThrowAgentIcon')
       skillPosition = {
@@ -1066,6 +1066,24 @@ const submitForm = async () => {
       }
       saveLocationData = saveThrowSkill
       break
+    }
+    case 'throwGround': {
+      const skillIcon = stage.findOne('.groupThrowGroundIcon')
+      const agentIcon = stage.findOne('.throwGroundAgent')
+      skillPosition = {
+        uuid: uuid,
+        agentId: agentValue.value,
+        mapId: mapValue.value,
+        skillIndex: skillIndex.value,
+        skillIndex: skillIndex.value,
+        skillIconX: skillIcon.position().x,
+        skillIconY: skillIcon.position().y,
+        agentIconX: agentIcon.position().x,
+        agentIconY: agentIcon.position().y,
+      }
+      saveLocationData = saveThrowGroundSkill
+      break
+    }
     case 'line':
       const groupLine = stage.findOne('.groupLine')
       skillPosition = {
@@ -1079,6 +1097,19 @@ const submitForm = async () => {
       }
       saveLocationData = saveLineSkill
       break
+    case 'control':
+      const icon = stage.findOne('.groupControlIcon')
+      const curve = stage.findOne('.skillControl')
+      skillPosition = {
+        uuid: uuid,
+        agentId: agentValue.value,
+        mapId: mapValue.value,
+        skillIndex: skillIndex.value,
+        skillIconX: icon.position().x,
+        skillIconY: icon.position().y,
+        pointList: curve.points(),
+      }
+      saveLocationData = saveControlSkill
     default:
       break
   }
@@ -1231,11 +1262,11 @@ const submit = async (form) => {
                 />
               </v-group>
               <!-- throwGround型 -->
-              <v-group :config="{ name: 'groupThrowGroud' }" v-if="skillType == 'throwGround'">
+              <v-group :config="{ name: 'groupThrowGround' }" v-if="skillType == 'throwGround'">
                 <v-line :config="throwGroundLineCfg" />
                 <v-group
-                  :config="{ name: 'groupThrowGroudIcon', x: 500, y: 300, draggable: true }"
-                  @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
+                  :config="{ name: 'groupThrowGroundIcon', x: 500, y: 300, draggable: true }"
+                  @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroundIcon', '.throwGroundAgent')"
                 >
                   <v-circle :config="throwGroundCircleCfg" v-if="!skillIconVisible" />
                   <v-image :config="throwGroundIconCfg" v-if="!skillIconVisible" />
@@ -1243,7 +1274,7 @@ const submit = async (form) => {
                 </v-group>
                 <v-image
                   :config="throwGroundAgentCfg"
-                  @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroudIcon', '.throwGroundAgent')"
+                  @dragmove="dragLineBothEnd(stageRef, '.throwGroundLine', '.groupThrowGroundIcon', '.throwGroundAgent')"
                 />
               </v-group>
               <!-- curve型 -->
@@ -1269,7 +1300,7 @@ const submit = async (form) => {
                 />
               </v-group>
               <!-- line型 -->
-              <v-group :config="{ name: 'groupLine', x: 500, y: 500, draggable: true }" v-if="skillType == 'line'">
+              <v-group :config="{ name: 'groupLine', x: 500, y: 500, draggable: true, rotation: -90 }" v-if="skillType == 'line'">
                 <v-rect :config="lineRectCfg" />
                 <v-group
                   :config="groupLineRotateControl"

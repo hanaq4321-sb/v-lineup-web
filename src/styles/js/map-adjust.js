@@ -67,7 +67,8 @@ export const mapRotate = (d, stageRef) => {
   const mapContainerGroup = stage.findOne('.mapContainerGroup')
   mapContainerGroup.to({ rotation: degree })
   const skillGroup = stage.findOne('.mapGroup')
-  const skillIcon = skillGroup.find('Image')
+  // const skillIcon = skillGroup.find('Image')
+  const skillIcon = skillGroup.find('#r-img')
   skillIcon.forEach((icon) => {
     icon.to({ rotation: -degree })
   })
@@ -88,7 +89,7 @@ export const resetMap = (stageRef) => {
   degree = 0
   mapContainerGroup.rotation(degree)
   const skillGroup = stage.findOne('.mapGroup')
-  const skillIcon = skillGroup.find('Image')
+  const skillIcon = skillGroup.find('#r-img')
   skillIcon.forEach((icon) => {
     icon.rotation(degree)
   })
@@ -96,6 +97,23 @@ export const resetMap = (stageRef) => {
   if (mapPoint != []) {
     mapPoint.forEach((icon) => {
       icon.rotation(degree)
+    })
+  }
+}
+export const sideRotate = (d, stageRef) => {
+  degree = d
+  const stage = stageRef.getNode()
+  const mapContainerGroup = stage.findOne('.mapContainerGroup')
+  mapContainerGroup.rotation(degree)
+  const skillGroup = stage.findOne('.mapGroup')
+  const skillIcon = skillGroup.find('#r-img')
+  skillIcon.forEach((icon) => {
+    icon.rotation(-degree)
+  })
+  const mapPoint = stage.find('#point')
+  if (mapPoint != []) {
+    mapPoint.forEach((icon) => {
+      icon.rotation(-degree)
     })
   }
 }

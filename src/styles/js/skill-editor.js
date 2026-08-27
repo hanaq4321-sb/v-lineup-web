@@ -21,7 +21,6 @@ export const rotateControlCircle = ref({
   stroke: '#000',
   strokeWidth: 1,
 })
-
 // 技能图标
 
 // 控制点的hover样式

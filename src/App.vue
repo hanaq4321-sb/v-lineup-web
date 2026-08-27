@@ -6,7 +6,7 @@ import { getMapListService } from './api/map.js'
 import { usePreloadInfoStore } from './store/preload-info.js'
 import { useAgentSelectStore, useSettingBarStore } from './store/user.js'
 import { storeToRefs } from 'pinia'
-import { computed, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useImage } from 'vue-konva'
@@ -63,10 +63,12 @@ const preloadMapInfo = async () => {
   }
 }
 let [skillBallImg] = useImage('image/icon/skillBall.png')
+// 监听加载地图地名数据
 watch(
   [mapValue, pointNameVisible, skillBallVisible, lightCurtainVisible],
   async () => {
     // NOTE 不能连等，会导致对象相同
+    // TODO 优化
     attackBarrierArray.value = []
     defendBarrierArray.value = []
     textArray.value = []
@@ -131,17 +133,40 @@ watch(
     immediate: true,
   },
 )
+watch(
+  agentValue,
+  () => {
+    selectStore.currentAgent = `agent/${agentValue.value}/${agentValue.value}.webp`
+    console.log(preloadInfoStore.agentDetail)
+    // skillSelectIconList.value = [
+    //   `agent/${agentValue.value}/${agentValue.value}_1.webp`,
+    //   `agent/${agentValue.value}/${agentValue.value}_2.webp`,
+    //   `agent/${agentValue.value}/${agentValue.value}_3.webp`,
+    //   `agent/${agentValue.value}/${agentValue.value}_4.webp`,
+    // ]
+    // selectStore.skillImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)[0]
+    // selectStore.agentImg = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)[0]
+  },
+  {
+    immediate: true,
+  },
+)
+// 使用router钩子在渲染页面之前加载好数据，生命周期钩子await不生效
 const router = useRouter()
 let isFirstVisit = true
 router.beforeEach(async (to, from, next) => {
-  // 在渲染页面之前加载好数据
   if (isFirstVisit) {
     await preloadAgentInfo()
     await preloadSkillData()
     await preloadMapInfo()
+    isFirstVisit = false
+    console.log('数据预加载')
   }
-  console.log('app')
   next()
+})
+// 将喜爱特工同步到当前选中特工
+onMounted(() => {
+  selectStore.agentValue = settingStore.favoriteAgent
 })
 </script>
 

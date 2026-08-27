@@ -16,8 +16,8 @@ export const useSettingBarStore = defineStore(
       controlAnchorVisible = ref(false),
       skillIconVisible = ref(false),
       mapDraggable = ref(true),
-      settingBarVisible = ref(false)
-    favoriteAgent = ref('sova')
+      settingBarVisible = ref(false),
+      favoriteAgent = ref('sova')
     return {
       pointNameVisible,
       skillBallVisible,
@@ -38,12 +38,17 @@ export const useSettingBarStore = defineStore(
 export const useAgentSelectStore = defineStore(
   'agentSelect',
   () => {
+    // 外部通过toref或.可以直接引用修改
+    // 暴露的状态都应该用 ref 或 reactive 包裹
     const mapValue = ref('breeze')
     const agentValue = ref('sova')
     const agentLabel = ref('猎枭')
-    // 外部可以直接修改
     const skillIndex = ref(3)
-    return { mapValue, agentValue, agentLabel, skillIndex }
+    // 图片
+    const currentAgent = ref()
+    const skillImg = ref()
+    const agentImg = ref()
+    return { mapValue, agentValue, agentLabel, skillIndex, currentAgent, skillImg, agentImg }
   },
   {
     persist: true,

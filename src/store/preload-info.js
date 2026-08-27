@@ -6,7 +6,7 @@ export const usePreloadInfoStore = defineStore(
   'agentInfo',
   () => {
     // NOTE const数组可以增删改、不能直接赋值
-    // 特工信息和技能数据
+    // 所有特工信息和技能数据
     let agentInfo = []
     let skillData = []
     let mapInfo = []
