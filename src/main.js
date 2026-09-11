@@ -21,3 +21,5 @@ app.use(VueKonva)
 app.use(router)
 app.use(pinia)
 app.mount('#app')
+
+console.log(import.meta.env.VITE_APP_BASEURL)

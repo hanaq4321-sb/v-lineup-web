@@ -290,7 +290,7 @@ const uploadSelect = (type) => {
           text-color="#fff"
           active-text-color="#fd4453"
         >
-          <el-menu-item index="1">首页</el-menu-item>
+          <el-menu-item index="/searchResult">首页</el-menu-item>
           <el-menu-item index="/lineup">LineUp</el-menu-item>
           <el-menu-item index="/editor">社区</el-menu-item>
           <el-menu-item index="/penetrate">穿点</el-menu-item>
@@ -584,13 +584,13 @@ const uploadSelect = (type) => {
   }
 
   .el-main {
-    --el-main-padding: 0px;
+    --el-main-padding: 1px;
     // height: 100%;
     // box-sizing: border-box;
 
-    div {
-      height: 100%;
-    }
+    // div {
+    //   height: 100%;
+    // }
   }
 
   .login-dialog {

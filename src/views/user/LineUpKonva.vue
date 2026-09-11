@@ -73,12 +73,6 @@ const { mapValue, agentValue, agentLabel, skillIndex } = storeToRefs(selectStore
 const { pointNameVisible, skillBallVisible, lightCurtainVisible, skillIconVisible } = storeToRefs(settingStore)
 const { agentDetail, skillDetail, attackBarrierArray, defendBarrierArray, textArray, skillBallArray } = storeToRefs(preloadInfo)
 const { mapInfo, skillData, agentInfo } = preloadInfo
-const skillSelectIconList = ref([
-  `agent/${agentValue.value}/${agentValue.value}_1.webp`,
-  `agent/${agentValue.value}/${agentValue.value}_2.webp`,
-  `agent/${agentValue.value}/${agentValue.value}_3.webp`,
-  `agent/${agentValue.value}/${agentValue.value}_4.webp`,
-])
 const skillType = ref('controlStraight')
 //#endregion
 
@@ -170,7 +164,6 @@ onBeforeUnmount(() => {
 //#region 技能绘制
 
 //#region 更改图片
-import { toRaw } from '@vue/reactivity'
 let skillImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)[0]
 let agentImg = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)[0]
 let skillDetailImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3_detail.png`)[0]
@@ -1090,17 +1083,10 @@ const getSkillCollectLocation = async () => {
 }
 // 开局默认执行一次，传入用户选定的英雄技能，否则line无法重置
 skillClick(skillIndex.value)
-const agentSelect = (label) => {
-  // text
-  agentLabel.value = label
-  skillSelectIconList.value = [
-    `agent/${agentValue.value}/${agentValue.value}_1.webp`,
-    `agent/${agentValue.value}/${agentValue.value}_2.webp`,
-    `agent/${agentValue.value}/${agentValue.value}_3.webp`,
-    `agent/${agentValue.value}/${agentValue.value}_4.webp`,
-  ]
-  skillClick(skillIndex.value)
-}
+// const agentSelect = (label) => {
+//   agentLabel.value = label
+//   skillClick(skillIndex.value)
+// }
 //#endregion
 </script>
 
@@ -1127,7 +1113,7 @@ const agentSelect = (label) => {
             :key="agent.id"
             :label="agent.agentName"
             :value="agent.id"
-            @click="agentSelect(agent.agentName)"
+            @click="skillClick(skillIndex)"
           ></el-option>
         </el-select>
       </div>
@@ -1142,22 +1128,22 @@ const agentSelect = (label) => {
       <!-- 技能选择 -->
       <div class="row-space">
         <div class="skills">
-          <img :class="ifSkillIconDetail[0] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_1.webp" @click="skillClick(1)" />
+          <img :class="ifSkillIconDetail[0] ? skillIconClick : skillIcon" :src="selectStore.skillSelectIconList[0]" @click="skillClick(1)" />
           <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[0]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
           <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[0]" color="green" size="15"><Check /></el-icon>
         </div>
         <div class="skills">
-          <img :class="ifSkillIconDetail[1] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_2.webp" @click="skillClick(2)" />
+          <img :class="ifSkillIconDetail[1] ? skillIconClick : skillIcon" :src="selectStore.skillSelectIconList[1]" @click="skillClick(2)" />
           <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[1]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
           <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[1]" color="green" size="15"><Check /></el-icon>
         </div>
         <div class="skills">
-          <img :class="ifSkillIconDetail[2] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_3.webp" @click="skillClick(3)" />
+          <img :class="ifSkillIconDetail[2] ? skillIconClick : skillIcon" :src="selectStore.skillSelectIconList[2]" @click="skillClick(3)" />
           <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[2]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
           <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[2]" color="green" size="15"><Check /></el-icon>
         </div>
         <div class="skills">
-          <img :class="ifSkillIconDetail[3] ? skillIconClick : skillIcon" src="../../assets/agent/sova/sova_4.webp" @click="skillClick(4)" />
+          <img :class="ifSkillIconDetail[3] ? skillIconClick : skillIcon" :src="selectStore.skillSelectIconList[3]" @click="skillClick(4)" />
           <el-tag class="skill-icon-num" v-if="ifSkillIconDetail[3]" size="small" effect="dark" type="success" round>{{ skillCounts }}</el-tag>
           <el-icon class="skill-icon-check" v-if="ifSkillIconDetail[3]" color="green" size="15"><Check /></el-icon>
         </div>

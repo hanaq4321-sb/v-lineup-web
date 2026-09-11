@@ -48,7 +48,8 @@ export const useAgentSelectStore = defineStore(
     const currentAgent = ref()
     const skillImg = ref()
     const agentImg = ref()
-    return { mapValue, agentValue, agentLabel, skillIndex, currentAgent, skillImg, agentImg }
+    const skillSelectIconList = ref()
+    return { mapValue, agentValue, agentLabel, skillIndex, currentAgent, skillImg, agentImg, skillSelectIconList }
   },
   {
     persist: true,

@@ -137,13 +137,12 @@ watch(
   agentValue,
   () => {
     selectStore.currentAgent = `agent/${agentValue.value}/${agentValue.value}.webp`
-    console.log(preloadInfoStore.agentDetail)
-    // skillSelectIconList.value = [
-    //   `agent/${agentValue.value}/${agentValue.value}_1.webp`,
-    //   `agent/${agentValue.value}/${agentValue.value}_2.webp`,
-    //   `agent/${agentValue.value}/${agentValue.value}_3.webp`,
-    //   `agent/${agentValue.value}/${agentValue.value}_4.webp`,
-    // ]
+    selectStore.skillSelectIconList = [
+      `agent/${agentValue.value}/${agentValue.value}_1.webp`,
+      `agent/${agentValue.value}/${agentValue.value}_2.webp`,
+      `agent/${agentValue.value}/${agentValue.value}_3.webp`,
+      `agent/${agentValue.value}/${agentValue.value}_4.webp`,
+    ]
     // selectStore.skillImg = useImage(`agent/${agentValue.value}/${agentValue.value}_3.webp`)[0]
     // selectStore.agentImg = useImage(`agent/${agentValue.value}/${agentValue.value}.webp`)[0]
   },

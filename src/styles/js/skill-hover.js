@@ -87,7 +87,10 @@ const controlHover = (e) => {
   groupNode.zIndex(-10)
   line.stroke('orange')
   circle.stroke('orange')
-  // circle.strokeWidth(2)
+
+  // 范围
+  circle.radius(30)
+  circle.fill('rgba(0,0,0,0.2)')
 }
 const controlUnHover = (e) => {
   const groupNode = e.currentTarget
@@ -96,6 +99,9 @@ const controlUnHover = (e) => {
   groupNode.zIndex(0)
   line.stroke('#6c7dff')
   circle.stroke('#23ffd0')
-  // circle.strokeWidth(2)
+  // TODO 拖动范围显示
+  // 范围
+  circle.radius(15)
+  circle.fill('#rgba(0,0,0,0.8)')
 }
 export { throwHover, throwUnHover, lineHover, lineUnHover, throwGroundHover, throwGroundUnHover, controlHover, controlUnHover }
